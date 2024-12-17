@@ -10,11 +10,11 @@ export const getCardImage = (value: number): string => {
     5: "/lovable-uploads/d7292c90-7576-4b07-8596-ce9f9c22c35e.png",    // carte 5 (jaune)
     6: "/lovable-uploads/2ab5eb44-124e-4145-9a03-1b19ab257fce.png",    // carte 6 (jaune)
     7: "/lovable-uploads/034cef01-c8cb-42dc-a66d-3cf8fc643c28.png",    // carte 7 (jaune)
-    8: "/lovable-uploads/dce2545b-8855-4ad9-93d8-24905077610f.png",    // rouge pour les valeurs 8-12
-    9: "/lovable-uploads/dce2545b-8855-4ad9-93d8-24905077610f.png",
-    10: "/lovable-uploads/dce2545b-8855-4ad9-93d8-24905077610f.png",
-    11: "/lovable-uploads/dce2545b-8855-4ad9-93d8-24905077610f.png",
-    12: "/lovable-uploads/dce2545b-8855-4ad9-93d8-24905077610f.png",
+    8: "/lovable-uploads/0c97cd57-ade2-4066-aded-192491d63fcb.png",    // carte 8 (jaune)
+    9: "/lovable-uploads/205efbc6-519d-40a7-81ee-971c3a611b95.png",    // carte 9 (rouge)
+    10: "/lovable-uploads/d666db56-ba8c-48f1-8e46-6c2023a5194b.png",   // carte 10 (rouge)
+    11: "/lovable-uploads/58b84ed4-4ad2-42fc-98ba-c91ae2764bb6.png",   // carte 11 (rouge)
+    12: "/lovable-uploads/86e47882-7f71-4d53-9c31-d1534607ac94.png",   // carte 12 (rouge)
   };
   return imageMap[value];
 };
