@@ -5,11 +5,11 @@ export const getCardImage = (value: number): string => {
     0: "/lovable-uploads/73e6ff73-3a31-41c3-864d-76f36d3c4f0a.png",    // carte 0 (bleue)
     1: "/lovable-uploads/34529e39-9b12-453a-82a2-9b4293a15a34.png",    // carte 1 (verte)
     2: "/lovable-uploads/9f913513-2a61-4fd5-b2cb-47b208ef7045.png",    // carte 2 (verte)
-    3: "/lovable-uploads/beb5e6f7-020f-4ada-b87e-71110891e4a1.png",    // orange pour les valeurs 3-7
-    4: "/lovable-uploads/beb5e6f7-020f-4ada-b87e-71110891e4a1.png",
-    5: "/lovable-uploads/beb5e6f7-020f-4ada-b87e-71110891e4a1.png",
-    6: "/lovable-uploads/beb5e6f7-020f-4ada-b87e-71110891e4a1.png",
-    7: "/lovable-uploads/beb5e6f7-020f-4ada-b87e-71110891e4a1.png",
+    3: "/lovable-uploads/32bbaff1-47f1-4344-996a-dba93db5976c.png",    // carte 3 (verte)
+    4: "/lovable-uploads/06a7325f-d248-4f73-8290-914f096c41bf.png",    // carte 4 (verte)
+    5: "/lovable-uploads/d7292c90-7576-4b07-8596-ce9f9c22c35e.png",    // carte 5 (jaune)
+    6: "/lovable-uploads/2ab5eb44-124e-4145-9a03-1b19ab257fce.png",    // carte 6 (jaune)
+    7: "/lovable-uploads/034cef01-c8cb-42dc-a66d-3cf8fc643c28.png",    // carte 7 (jaune)
     8: "/lovable-uploads/dce2545b-8855-4ad9-93d8-24905077610f.png",    // rouge pour les valeurs 8-12
     9: "/lovable-uploads/dce2545b-8855-4ad9-93d8-24905077610f.png",
     10: "/lovable-uploads/dce2545b-8855-4ad9-93d8-24905077610f.png",
