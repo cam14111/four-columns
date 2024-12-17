@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Card as CardType } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { getCardImage, getCardBackImage } from "@/lib/cardImages";
 
 interface CardProps {
   card: CardType;
@@ -37,15 +38,25 @@ export const Card = ({ card, onClick, className, disabled }: CardProps) => {
           card.state === "visible" && "rotate-y-180"
         )}
       >
-        <div className="absolute w-full h-full backface-hidden bg-game-card rounded-lg border-2 border-game-primary shadow-md flex items-center justify-center">
-          <div className="w-12 h-12 rounded-full bg-game-primary opacity-20" />
+        <div className="absolute w-full h-full backface-hidden rounded-lg shadow-md">
+          <img 
+            src={getCardBackImage()} 
+            alt="Card back" 
+            className="w-full h-full object-cover rounded-lg"
+          />
         </div>
-        <div className="absolute w-full h-full backface-hidden rotate-y-180 bg-game-card rounded-lg border-2 border-game-primary shadow-md flex items-center justify-center">
+        <div className="absolute w-full h-full backface-hidden rotate-y-180 rounded-lg shadow-md overflow-hidden">
+          <img 
+            src={getCardImage(card.value)} 
+            alt={`Card value ${card.value}`}
+            className="w-full h-full object-cover"
+          />
           <span className={cn(
-            "text-2xl font-bold",
+            "absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2",
+            "text-4xl font-bold text-white drop-shadow-lg",
             card.value < 0 ? "text-red-500" :
-            card.value === 0 ? "text-gray-500" :
-            "text-game-primary"
+            card.value === 0 ? "text-gray-100" :
+            "text-white"
           )}>
             {card.value}
           </span>
