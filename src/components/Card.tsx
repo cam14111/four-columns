@@ -51,15 +51,6 @@ export const Card = ({ card, onClick, className, disabled }: CardProps) => {
             alt={`Card value ${card.value}`}
             className="w-full h-full object-cover"
           />
-          <span className={cn(
-            "absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2",
-            "text-4xl font-bold text-white drop-shadow-lg",
-            card.value < 0 ? "text-red-500" :
-            card.value === 0 ? "text-gray-100" :
-            "text-white"
-          )}>
-            {card.value}
-          </span>
         </div>
       </div>
     </div>
