@@ -196,13 +196,20 @@ export const GameBoard = () => {
             <GameControls
               gameState={gameState}
               onDrawFromDeck={handleDrawFromDeck}
-              onDrawFromDiscard={handleDrawFromDiscard}
               disabled={
                 gameState.players[gameState.currentPlayerIndex].isAI ||
                 ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
               }
             />
-            <DiscardPile discardPile={gameState.discardPile} />
+            <DiscardPile 
+              discardPile={gameState.discardPile}
+              onDrawFromDiscard={handleDrawFromDiscard}
+              disabled={
+                gameState.players[gameState.currentPlayerIndex].isAI ||
+                gameState.gamePhase !== "draw" ||
+                ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
+              }
+            />
             <ScoreDisplay players={gameState.players} />
           </div>
         </div>

@@ -3,18 +3,27 @@ import { Card } from "./Card";
 
 interface DiscardPileProps {
   discardPile: CardType[];
+  onDrawFromDiscard?: () => void;
+  disabled?: boolean;
 }
 
-export const DiscardPile = ({ discardPile }: DiscardPileProps) => {
+export const DiscardPile = ({ discardPile, onDrawFromDiscard, disabled }: DiscardPileProps) => {
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold text-game-primary">Défausse</h2>
-      <div className="relative h-28">
+      <div 
+        className="relative h-28"
+        onClick={() => {
+          if (!disabled && onDrawFromDiscard && discardPile.length > 0) {
+            onDrawFromDiscard();
+          }
+        }}
+      >
         {discardPile.length > 0 && (
           <Card
             card={discardPile[0]}
-            className="absolute inset-0"
-            disabled
+            className={`absolute inset-0 ${!disabled && onDrawFromDiscard ? 'cursor-pointer hover:scale-105 transition-transform' : ''}`}
+            disabled={disabled || !onDrawFromDiscard}
           />
         )}
       </div>
