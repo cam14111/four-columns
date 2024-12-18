@@ -17,12 +17,14 @@ export interface Player {
   isAI: boolean;
 }
 
+export type GamePhase = "initial" | "draw" | "action" | "roundEnd" | "gameEnd";
+
 export interface GameState {
   players: Player[];
   currentPlayerIndex: number;
   deck: Card[];
   discardPile: Card[];
-  gamePhase: "initial" | "draw" | "action" | "roundEnd" | "gameEnd";
+  gamePhase: GamePhase;
   selectedCard: Card | null;
   roundWinner: Player | null;
 }

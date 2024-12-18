@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Card, GameState, Player } from "@/lib/types";
+import { Card, GameState, Player, GamePhase } from "@/lib/types";
 import { PlayerGrid } from "./PlayerGrid";
 import { GameControls } from "./GameControls";
 import { ScoreDisplay } from "./ScoreDisplay";
@@ -29,7 +29,7 @@ export const GameBoard = () => {
       currentPlayerIndex: 0,
       deck: deck2,
       discardPile: [],
-      gamePhase: "initial",
+      gamePhase: "initial" as GamePhase,
       selectedCard: null,
       roundWinner: null
     };
@@ -111,7 +111,7 @@ export const GameBoard = () => {
       ...prev,
       deck: prev.deck.slice(1),
       selectedCard: prev.deck[0],
-      gamePhase: "action"
+      gamePhase: "action" as GamePhase
     }));
   };
 
@@ -122,7 +122,7 @@ export const GameBoard = () => {
       ...prev,
       discardPile: prev.discardPile.slice(1),
       selectedCard: prev.discardPile[0],
-      gamePhase: "action"
+      gamePhase: "action" as GamePhase
     }));
   };
 
@@ -136,12 +136,9 @@ export const GameBoard = () => {
       const newGrid = [...prev.players[prev.currentPlayerIndex].grid];
       newGrid[cardIndex] = { ...prev.selectedCard!, state: "visible" };
       
-      // Vérifie les colonnes pour les cartes identiques
-      const columnIndex = Math.floor(cardIndex / 3);
-      if (checkColumnMatch(newGrid, columnIndex)) {
-        // Supprime les cartes de la colonne
+      if (checkColumnMatch(newGrid, Math.floor(cardIndex / 3))) {
         newGrid.forEach((card, index) => {
-          if (Math.floor(index / 3) === columnIndex) {
+          if (Math.floor(index / 3) === Math.floor(cardIndex / 3)) {
             newGrid[index] = { ...card, state: "hidden" };
           }
         });
@@ -163,7 +160,7 @@ export const GameBoard = () => {
         players: newPlayers,
         discardPile: [clickedCard, ...prev.discardPile],
         selectedCard: null,
-        gamePhase: "draw",
+        gamePhase: "draw" as GamePhase,
         currentPlayerIndex: (prev.currentPlayerIndex + 1) % prev.players.length
       };
     });
@@ -184,8 +181,7 @@ export const GameBoard = () => {
                 disabled={
                   index !== gameState.currentPlayerIndex || 
                   gameState.gamePhase !== "action" ||
-                  gameState.gamePhase === "roundEnd" ||
-                  gameState.gamePhase === "gameEnd"
+                  ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
                 }
               />
             ))}
@@ -198,8 +194,7 @@ export const GameBoard = () => {
               onDrawFromDiscard={handleDrawFromDiscard}
               disabled={
                 gameState.players[gameState.currentPlayerIndex].isAI ||
-                gameState.gamePhase === "roundEnd" ||
-                gameState.gamePhase === "gameEnd"
+                ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
               }
             />
             <ScoreDisplay players={gameState.players} />
