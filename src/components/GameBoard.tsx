@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Card, GameState, Player, GamePhase } from "@/lib/types";
+import { Card as CardType, GameState, Player, GamePhase } from "@/lib/types";
 import { PlayerGrid } from "./PlayerGrid";
 import { GameControls } from "./GameControls";
 import { ScoreDisplay } from "./ScoreDisplay";
+import { DiscardPile } from "./DiscardPile";
 import { 
   createDeck, 
   dealInitialCards, 
@@ -21,14 +22,18 @@ export const GameBoard = () => {
     const { playerGrid: humanGrid, remainingDeck: deck1 } = dealInitialCards(deck);
     const { playerGrid: aiGrid, remainingDeck: deck2 } = dealInitialCards(deck1);
     
+    // Initialiser la défausse avec la première carte de la pioche
+    const firstDiscardCard = deck2[0];
+    const remainingDeck = deck2.slice(1);
+    
     return {
       players: [
-        { id: "1", name: "Player", score: 0, totalScore: 0, grid: humanGrid, isAI: false },
-        { id: "2", name: "AI", score: 0, totalScore: 0, grid: aiGrid, isAI: true }
+        { id: "1", name: "Joueur", score: 0, totalScore: 0, grid: humanGrid, isAI: false },
+        { id: "2", name: "IA", score: 0, totalScore: 0, grid: aiGrid, isAI: true }
       ],
       currentPlayerIndex: 0,
-      deck: deck2,
-      discardPile: [],
+      deck: remainingDeck,
+      discardPile: [{ ...firstDiscardCard, state: "visible" }],
       gamePhase: "initial" as GamePhase,
       selectedCard: null,
       roundWinner: null
@@ -197,6 +202,7 @@ export const GameBoard = () => {
                 ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
               }
             />
+            <DiscardPile discardPile={gameState.discardPile} />
             <ScoreDisplay players={gameState.players} />
           </div>
         </div>

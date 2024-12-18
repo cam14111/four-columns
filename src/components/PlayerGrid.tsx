@@ -10,7 +10,7 @@ interface PlayerGridProps {
 export const PlayerGrid = ({ player, onCardClick, disabled }: PlayerGridProps) => {
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold text-game-primary">{player.name}'s Grid</h2>
+      <h2 className="text-xl font-semibold text-game-primary">Grille de {player.name}</h2>
       <div className="grid grid-cols-4 gap-4">
         {player.grid.map((card) => (
           <Card

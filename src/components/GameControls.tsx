@@ -19,7 +19,7 @@ export const GameControls = ({
   return (
     <div className="space-y-4">
       <div className="text-lg font-medium text-game-primary">
-        {currentPlayer.name}'s Turn
+        Tour de {currentPlayer.name}
       </div>
       <div className="flex gap-4">
         <Button
@@ -27,14 +27,14 @@ export const GameControls = ({
           disabled={disabled || gameState.gamePhase !== "draw"}
           className="bg-game-primary hover:bg-game-secondary"
         >
-          Draw from Deck
+          Piocher
         </Button>
         <Button
           onClick={onDrawFromDiscard}
           disabled={disabled || gameState.gamePhase !== "draw" || gameState.discardPile.length === 0}
           className="bg-game-secondary hover:bg-game-primary"
         >
-          Draw from Discard
+          Prendre la défausse
         </Button>
       </div>
     </div>
