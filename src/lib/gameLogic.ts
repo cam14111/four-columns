@@ -33,7 +33,7 @@ export const shuffle = (array: Card[]): Card[] => {
 };
 
 export const dealInitialCards = (deck: Card[]): { playerGrid: Card[], remainingDeck: Card[] } => {
-  const playerGrid = deck.slice(0, 12); // Prend exactement 12 cartes
+  const playerGrid = deck.slice(0, 12);
   const remainingDeck = deck.slice(12);
   
   // Révèle deux cartes aléatoires
@@ -49,11 +49,53 @@ export const dealInitialCards = (deck: Card[]): { playerGrid: Card[], remainingD
 };
 
 export const calculateScore = (grid: Card[]): number => {
-  return grid.reduce((sum, card) => sum + (card.state === "visible" ? card.value : 0), 0);
+  return grid.reduce((sum, card) => sum + card.value, 0);
 };
 
-export const isGameOver = (grid: Card[]): boolean => {
+export const isGameOver = (players: Player[]): boolean => {
+  return players.some(player => player.totalScore >= 100);
+};
+
+export const isRoundOver = (grid: Card[]): boolean => {
   return grid.every(card => card.state === "visible");
+};
+
+export const checkColumnMatch = (grid: Card[], columnIndex: number): boolean => {
+  const column = grid.filter((_, index) => Math.floor(index / 3) === columnIndex);
+  if (column.length !== 3) return false;
+  
+  return column.every(card => 
+    card.state === "visible" && 
+    card.value === column[0].value
+  );
+};
+
+export const calculateRoundScores = (players: Player[], firstFinishedPlayer: Player): Player[] => {
+  const updatedPlayers = players.map(player => {
+    const roundScore = calculateScore(player.grid);
+    let finalRoundScore = roundScore;
+    
+    // Si le premier joueur à finir n'a pas le plus petit score, il prend 10 points de pénalité
+    if (player.id === firstFinishedPlayer.id) {
+      const otherPlayersMinScore = Math.min(
+        ...players
+          .filter(p => p.id !== player.id)
+          .map(p => calculateScore(p.grid))
+      );
+      
+      if (roundScore >= otherPlayersMinScore) {
+        finalRoundScore += 10;
+      }
+    }
+    
+    return {
+      ...player,
+      score: finalRoundScore,
+      totalScore: player.totalScore + finalRoundScore
+    };
+  });
+  
+  return updatedPlayers;
 };
 
 export const makeAIMove = (gameState: GameState): GameState => {

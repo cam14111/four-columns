@@ -12,10 +12,15 @@ export const ScoreDisplay = ({ players }: ScoreDisplayProps) => {
         {players.map((player) => (
           <div
             key={player.id}
-            className="flex justify-between items-center py-1 px-3 bg-white rounded-md shadow-sm"
+            className="flex flex-col gap-1 py-2 px-3 bg-white rounded-md shadow-sm"
           >
-            <span className="font-medium">{player.name}</span>
-            <span className="text-game-primary font-bold">{player.score}</span>
+            <div className="flex justify-between items-center">
+              <span className="font-medium">{player.name}</span>
+              <span className="text-game-primary font-bold">{player.totalScore}</span>
+            </div>
+            <div className="text-sm text-gray-500">
+              Manche en cours: {player.score}
+            </div>
           </div>
         ))}
       </div>

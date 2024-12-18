@@ -12,6 +12,7 @@ export interface Player {
   id: string;
   name: string;
   score: number;
+  totalScore: number;
   grid: Card[];
   isAI: boolean;
 }
@@ -21,6 +22,7 @@ export interface GameState {
   currentPlayerIndex: number;
   deck: Card[];
   discardPile: Card[];
-  gamePhase: "draw" | "action" | "end";
+  gamePhase: "initial" | "draw" | "action" | "roundEnd" | "gameEnd";
   selectedCard: Card | null;
+  roundWinner: Player | null;
 }
