@@ -4,8 +4,14 @@ export const createDeck = (): Card[] => {
   const deck: Card[] = [];
   const values: CardValue[] = [-2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
   
+  // Distribution des cartes selon leur fréquence
   values.forEach((value) => {
-    for (let i = 0; i < 10; i++) {
+    const frequency = value === -2 ? 5 : // 5 cartes de -2
+                     value === -1 ? 10 : // 10 cartes de -1
+                     value === 0 ? 15 : // 15 cartes de 0
+                     10; // 10 cartes pour toutes les autres valeurs
+    
+    for (let i = 0; i < frequency; i++) {
       deck.push({
         id: `${value}-${i}`,
         value,
@@ -27,14 +33,15 @@ export const shuffle = (array: Card[]): Card[] => {
 };
 
 export const dealInitialCards = (deck: Card[]): { playerGrid: Card[], remainingDeck: Card[] } => {
-  const playerGrid = deck.slice(0, 12);
+  const playerGrid = deck.slice(0, 12); // Prend exactement 12 cartes
   const remainingDeck = deck.slice(12);
   
-  // Reveal two random cards
+  // Révèle deux cartes aléatoires
   const indices = [
     Math.floor(Math.random() * 12),
     Math.floor(Math.random() * 11)
-  ];
+  ].sort();
+  
   playerGrid[indices[0]].state = "visible";
   playerGrid[indices[1]].state = "visible";
   
