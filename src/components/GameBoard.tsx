@@ -131,7 +131,7 @@ export const GameBoard = () => {
     }));
   };
 
-  const handleCardClick = (clickedCard: Card) => {
+  const handleCardClick = (clickedCard: CardType) => {
     if (gameState.gamePhase !== "action" || !gameState.selectedCard) return;
     
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
