@@ -38,16 +38,26 @@ export const Card = ({ card, onClick, className, disabled }: CardProps) => {
           card.state === "visible" && "rotate-y-180"
         )}
       >
-        {/* Front face (card back) */}
-        <div className="absolute w-full h-full backface-hidden rounded-lg shadow-md">
+        {/* Face avant (dos de la carte) */}
+        <div 
+          className={cn(
+            "absolute w-full h-full backface-hidden rounded-lg shadow-md",
+            card.state === "visible" && "hidden"
+          )}
+        >
           <img 
             src={getCardBackImage()} 
             alt="Card back" 
             className="w-full h-full object-cover rounded-lg"
           />
         </div>
-        {/* Back face (card value) */}
-        <div className="absolute w-full h-full backface-hidden rotate-y-180 rounded-lg shadow-md overflow-hidden">
+        {/* Face arrière (valeur de la carte) */}
+        <div 
+          className={cn(
+            "absolute w-full h-full backface-hidden rotate-y-180 rounded-lg shadow-md overflow-hidden",
+            card.state === "hidden" && "hidden"
+          )}
+        >
           <img 
             src={getCardImage(card.value)} 
             alt={`Card value ${card.value}`}
