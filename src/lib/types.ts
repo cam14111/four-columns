@@ -15,9 +15,10 @@ export interface Player {
   totalScore: number;
   grid: Card[];
   isAI: boolean;
+  initialCardsSum?: number;
 }
 
-export type GamePhase = "initial" | "draw" | "action" | "roundEnd" | "gameEnd";
+export type GamePhase = "initial" | "selectInitialCards" | "draw" | "action" | "roundEnd" | "gameEnd";
 
 export interface GameState {
   players: Player[];
@@ -27,4 +28,5 @@ export interface GameState {
   gamePhase: GamePhase;
   selectedCard: Card | null;
   roundWinner: Player | null;
+  selectedInitialCards: number;
 }

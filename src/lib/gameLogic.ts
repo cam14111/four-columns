@@ -35,17 +35,26 @@ export const shuffle = (array: Card[]): Card[] => {
 export const dealInitialCards = (deck: Card[]): { playerGrid: Card[], remainingDeck: Card[] } => {
   const playerGrid = deck.slice(0, 12);
   const remainingDeck = deck.slice(12);
-  
-  // Révèle deux cartes aléatoires
-  const indices = [
-    Math.floor(Math.random() * 12),
-    Math.floor(Math.random() * 11)
-  ].sort();
-  
-  playerGrid[indices[0]].state = "visible";
-  playerGrid[indices[1]].state = "visible";
-  
   return { playerGrid, remainingDeck };
+};
+
+export const calculateInitialCardsSum = (grid: Card[]): number => {
+  return grid.filter(card => card.state === "visible")
+    .reduce((sum, card) => sum + card.value, 0);
+};
+
+export const determineFirstPlayer = (players: Player[]): number => {
+  let maxSum = -Infinity;
+  let firstPlayerIndex = 0;
+
+  players.forEach((player, index) => {
+    if (player.initialCardsSum !== undefined && player.initialCardsSum > maxSum) {
+      maxSum = player.initialCardsSum;
+      firstPlayerIndex = index;
+    }
+  });
+
+  return firstPlayerIndex;
 };
 
 export const calculateScore = (grid: Card[]): number => {
@@ -99,11 +108,36 @@ export const calculateRoundScores = (players: Player[], firstFinishedPlayer: Pla
 };
 
 export const makeAIMove = (gameState: GameState): GameState => {
-  // Simple AI strategy: Always draw from deck and replace highest visible card
   const newState = { ...gameState };
   const currentPlayer = newState.players[newState.currentPlayerIndex];
-  
-  if (gameState.gamePhase === "draw") {
+
+  if (gameState.gamePhase === "selectInitialCards") {
+    // L'IA choisit les deux cartes avec les plus petites valeurs
+    const hiddenCards = currentPlayer.grid
+      .map((card, index) => ({ card, index }))
+      .filter(item => item.card.state === "hidden")
+      .sort((a, b) => a.card.value - b.card.value);
+
+    if (hiddenCards.length > 0) {
+      const cardToReveal = hiddenCards[0];
+      const newGrid = [...currentPlayer.grid];
+      newGrid[cardToReveal.index] = { ...cardToReveal.card, state: "visible" };
+      currentPlayer.grid = newGrid;
+      newState.selectedInitialCards++;
+
+      if (newState.selectedInitialCards === 2) {
+        currentPlayer.initialCardsSum = calculateInitialCardsSum(newGrid);
+        newState.selectedInitialCards = 0;
+        newState.currentPlayerIndex = (newState.currentPlayerIndex + 1) % newState.players.length;
+
+        // Si tous les joueurs ont sélectionné leurs cartes
+        if (newState.players.every(p => p.initialCardsSum !== undefined)) {
+          newState.currentPlayerIndex = determineFirstPlayer(newState.players);
+          newState.gamePhase = "draw";
+        }
+      }
+    }
+  } else if (gameState.gamePhase === "draw") {
     // AI always draws from deck for simplicity
     const drawnCard = newState.deck[0];
     newState.deck = newState.deck.slice(1);
@@ -128,6 +162,6 @@ export const makeAIMove = (gameState: GameState): GameState => {
     newState.gamePhase = "draw";
     newState.currentPlayerIndex = (newState.currentPlayerIndex + 1) % newState.players.length;
   }
-  
+
   return newState;
 };

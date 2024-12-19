@@ -11,7 +11,9 @@ import {
   isRoundOver,
   isGameOver,
   calculateRoundScores,
-  checkColumnMatch 
+  checkColumnMatch,
+  calculateInitialCardsSum,
+  determineFirstPlayer
 } from "@/lib/gameLogic";
 import { useToast } from "@/hooks/use-toast";
 
@@ -22,21 +24,18 @@ export const GameBoard = () => {
     const { playerGrid: humanGrid, remainingDeck: deck1 } = dealInitialCards(deck);
     const { playerGrid: aiGrid, remainingDeck: deck2 } = dealInitialCards(deck1);
     
-    // Initialiser la défausse avec la première carte de la pioche
-    const firstDiscardCard = deck2[0];
-    const remainingDeck = deck2.slice(1);
-    
     return {
       players: [
         { id: "1", name: "Joueur", score: 0, totalScore: 0, grid: humanGrid, isAI: false },
         { id: "2", name: "IA", score: 0, totalScore: 0, grid: aiGrid, isAI: true }
       ],
       currentPlayerIndex: 0,
-      deck: remainingDeck,
-      discardPile: [{ ...firstDiscardCard, state: "visible" }],
-      gamePhase: "initial" as GamePhase,
+      deck: deck2,
+      discardPile: [],
+      gamePhase: "selectInitialCards" as GamePhase,
       selectedCard: null,
-      roundWinner: null
+      roundWinner: null,
+      selectedInitialCards: 0
     };
   });
 
@@ -109,31 +108,67 @@ export const GameBoard = () => {
     }
   }, [gameState.players, gameState.currentPlayerIndex]);
 
-  const handleDrawFromDeck = () => {
-    if (gameState.gamePhase !== "draw") return;
-    
-    setGameState(prev => ({
-      ...prev,
-      deck: prev.deck.slice(1),
-      selectedCard: prev.deck[0],
-      gamePhase: "action" as GamePhase
-    }));
-  };
-
-  const handleDrawFromDiscard = () => {
-    if (gameState.gamePhase !== "draw" || gameState.discardPile.length === 0) return;
-    
-    setGameState(prev => ({
-      ...prev,
-      discardPile: prev.discardPile.slice(1),
-      selectedCard: prev.discardPile[0],
-      gamePhase: "action" as GamePhase
-    }));
-  };
-
   const handleCardClick = (clickedCard: CardType) => {
-    if (gameState.gamePhase !== "action" || !gameState.selectedCard) return;
-    
+    if (gameState.gamePhase === "selectInitialCards") {
+      if (clickedCard.state === "visible") return;
+      
+      setGameState(prev => {
+        const currentPlayer = prev.players[prev.currentPlayerIndex];
+        const cardIndex = currentPlayer.grid.findIndex(c => c.id === clickedCard.id);
+        const newGrid = [...currentPlayer.grid];
+        newGrid[cardIndex] = { ...clickedCard, state: "visible" };
+        
+        const newPlayers = [...prev.players];
+        const newSelectedCards = prev.selectedInitialCards + 1;
+        
+        if (newSelectedCards === 2) {
+          const newPlayer = {
+            ...currentPlayer,
+            grid: newGrid,
+            initialCardsSum: calculateInitialCardsSum(newGrid)
+          };
+          newPlayers[prev.currentPlayerIndex] = newPlayer;
+          
+          // Vérifie si tous les joueurs ont sélectionné leurs cartes
+          const nextPlayerIndex = (prev.currentPlayerIndex + 1) % prev.players.length;
+          const allPlayersSelected = nextPlayerIndex === 0;
+          
+          if (allPlayersSelected) {
+            const firstPlayerIndex = determineFirstPlayer(newPlayers);
+            toast({
+              title: "Premier joueur déterminé !",
+              description: `${newPlayers[firstPlayerIndex].name} commence avec la plus grande somme.`
+            });
+            
+            return {
+              ...prev,
+              players: newPlayers,
+              currentPlayerIndex: firstPlayerIndex,
+              gamePhase: "draw" as GamePhase,
+              selectedInitialCards: 0
+            };
+          }
+          
+          return {
+            ...prev,
+            players: newPlayers,
+            currentPlayerIndex: nextPlayerIndex,
+            selectedInitialCards: 0
+          };
+        }
+        
+        newPlayers[prev.currentPlayerIndex] = {
+          ...currentPlayer,
+          grid: newGrid
+        };
+        
+        return {
+          ...prev,
+          players: newPlayers,
+          selectedInitialCards: newSelectedCards
+        };
+      });
+    } else if (gameState.gamePhase === "action" && gameState.selectedCard) {
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     const cardIndex = currentPlayer.grid.findIndex(c => c.id === clickedCard.id);
     
@@ -169,12 +204,41 @@ export const GameBoard = () => {
         currentPlayerIndex: (prev.currentPlayerIndex + 1) % prev.players.length
       };
     });
+    }
+  };
+
+  const handleDrawFromDeck = () => {
+    if (gameState.gamePhase !== "draw") return;
+    
+    setGameState(prev => ({
+      ...prev,
+      deck: prev.deck.slice(1),
+      selectedCard: prev.deck[0],
+      gamePhase: "action" as GamePhase
+    }));
+  };
+
+  const handleDrawFromDiscard = () => {
+    if (gameState.gamePhase !== "draw" || gameState.discardPile.length === 0) return;
+    
+    setGameState(prev => ({
+      ...prev,
+      discardPile: prev.discardPile.slice(1),
+      selectedCard: prev.discardPile[0],
+      gamePhase: "action" as GamePhase
+    }));
   };
 
   return (
     <div className="min-h-screen bg-game-background p-8">
       <div className="max-w-4xl mx-auto space-y-8">
         <h1 className="text-3xl font-bold text-center text-game-primary">Skyjo</h1>
+        
+        {gameState.gamePhase === "selectInitialCards" && (
+          <div className="text-center text-lg text-game-primary mb-4">
+            {`${gameState.players[gameState.currentPlayerIndex].name}, sélectionnez ${2 - gameState.selectedInitialCards} carte${gameState.selectedInitialCards === 1 ? '' : 's'}`}
+          </div>
+        )}
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="md:col-span-2 space-y-8">
@@ -185,7 +249,7 @@ export const GameBoard = () => {
                 onCardClick={handleCardClick}
                 disabled={
                   index !== gameState.currentPlayerIndex || 
-                  gameState.gamePhase !== "action" ||
+                  (gameState.gamePhase === "action" && !gameState.selectedCard) ||
                   ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
                 }
               />
@@ -198,6 +262,7 @@ export const GameBoard = () => {
               onDrawFromDeck={handleDrawFromDeck}
               disabled={
                 gameState.players[gameState.currentPlayerIndex].isAI ||
+                gameState.gamePhase === "selectInitialCards" ||
                 ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
               }
             />
