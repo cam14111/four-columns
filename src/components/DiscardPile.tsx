@@ -21,7 +21,7 @@ export const DiscardPile = ({ discardPile, onDrawFromDiscard, disabled }: Discar
       >
         {discardPile.length > 0 && (
           <Card
-            card={discardPile[0]}
+            card={{ ...discardPile[0], state: "visible" }}
             className={`absolute inset-0 ${!disabled && onDrawFromDiscard ? 'cursor-pointer hover:scale-105 transition-transform' : ''}`}
             disabled={disabled || !onDrawFromDiscard}
           />

@@ -15,7 +15,10 @@ export const TurnActions = ({ selectedCard, onKeepCard, onDiscardCard, disabled 
   return (
     <div className="space-y-4">
       <div className="text-center">
-        <Card card={selectedCard} className="mx-auto" />
+        <Card 
+          card={{ ...selectedCard, state: "visible" }} 
+          className="mx-auto" 
+        />
       </div>
       <div className="flex justify-center gap-4">
         <Button 
