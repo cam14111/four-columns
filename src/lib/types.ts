@@ -18,7 +18,14 @@ export interface Player {
   initialCardsSum?: number;
 }
 
-export type GamePhase = "initial" | "selectInitialCards" | "draw" | "action" | "roundEnd" | "gameEnd";
+export type GamePhase = 
+  | "initial" 
+  | "selectInitialCards" 
+  | "draw" 
+  | "action" 
+  | "selectHiddenCard"
+  | "roundEnd" 
+  | "gameEnd";
 
 export interface GameState {
   players: Player[];

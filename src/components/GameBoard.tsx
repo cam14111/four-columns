@@ -4,6 +4,7 @@ import { PlayerGrid } from "./PlayerGrid";
 import { GameControls } from "./GameControls";
 import { ScoreDisplay } from "./ScoreDisplay";
 import { DiscardPile } from "./DiscardPile";
+import { TurnPhase } from "./TurnPhase";
 import { 
   createDeck, 
   dealInitialCards, 
@@ -108,6 +109,31 @@ export const GameBoard = () => {
     }
   }, [gameState.players, gameState.currentPlayerIndex]);
 
+  const handleKeepCard = () => {
+    if (!gameState.selectedCard) return;
+    
+    toast({
+      title: "Action requise",
+      description: "Sélectionnez une carte de votre grille à remplacer"
+    });
+  };
+
+  const handleDiscardCard = () => {
+    if (!gameState.selectedCard) return;
+    
+    setGameState(prev => ({
+      ...prev,
+      discardPile: [prev.selectedCard!, ...prev.discardPile],
+      selectedCard: null,
+      gamePhase: "selectHiddenCard" as GamePhase
+    }));
+    
+    toast({
+      title: "Action requise",
+      description: "Sélectionnez une de vos cartes cachées à retourner"
+    });
+  };
+
   const handleCardClick = (clickedCard: CardType) => {
     if (gameState.gamePhase === "selectInitialCards") {
       if (clickedCard.state === "visible") return;
@@ -169,41 +195,62 @@ export const GameBoard = () => {
         };
       });
     } else if (gameState.gamePhase === "action" && gameState.selectedCard) {
-    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-    const cardIndex = currentPlayer.grid.findIndex(c => c.id === clickedCard.id);
-    
-    setGameState(prev => {
-      const newGrid = [...prev.players[prev.currentPlayerIndex].grid];
-      newGrid[cardIndex] = { ...prev.selectedCard!, state: "visible" };
+      const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+      const cardIndex = currentPlayer.grid.findIndex(c => c.id === clickedCard.id);
       
-      if (checkColumnMatch(newGrid, Math.floor(cardIndex / 3))) {
-        newGrid.forEach((card, index) => {
-          if (Math.floor(index / 3) === Math.floor(cardIndex / 3)) {
-            newGrid[index] = { ...card, state: "hidden" };
-          }
-        });
+      setGameState(prev => {
+        const newGrid = [...prev.players[prev.currentPlayerIndex].grid];
+        newGrid[cardIndex] = { ...prev.selectedCard!, state: "visible" };
         
-        toast({
-          title: "Colonne complète !",
-          description: "Les cartes de la colonne ont été défaussées."
-        });
-      }
+        if (checkColumnMatch(newGrid, Math.floor(cardIndex / 3))) {
+          newGrid.forEach((card, index) => {
+            if (Math.floor(index / 3) === Math.floor(cardIndex / 3)) {
+              newGrid[index] = { ...card, state: "hidden" };
+            }
+          });
+          
+          toast({
+            title: "Colonne complète !",
+            description: "Les cartes de la colonne ont été défaussées."
+          });
+        }
+        
+        const newPlayers = [...prev.players];
+        newPlayers[prev.currentPlayerIndex] = {
+          ...currentPlayer,
+          grid: newGrid
+        };
+        
+        return {
+          ...prev,
+          players: newPlayers,
+          discardPile: [clickedCard, ...prev.discardPile],
+          selectedCard: null,
+          gamePhase: "draw" as GamePhase,
+          currentPlayerIndex: (prev.currentPlayerIndex + 1) % prev.players.length
+        };
+      });
+    } else if (gameState.gamePhase === "selectHiddenCard" && clickedCard.state === "hidden") {
+      const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+      const cardIndex = currentPlayer.grid.findIndex(c => c.id === clickedCard.id);
       
-      const newPlayers = [...prev.players];
-      newPlayers[prev.currentPlayerIndex] = {
-        ...currentPlayer,
-        grid: newGrid
-      };
-      
-      return {
-        ...prev,
-        players: newPlayers,
-        discardPile: [clickedCard, ...prev.discardPile],
-        selectedCard: null,
-        gamePhase: "draw" as GamePhase,
-        currentPlayerIndex: (prev.currentPlayerIndex + 1) % prev.players.length
-      };
-    });
+      setGameState(prev => {
+        const newGrid = [...prev.players[prev.currentPlayerIndex].grid];
+        newGrid[cardIndex] = { ...clickedCard, state: "visible" };
+        
+        const newPlayers = [...prev.players];
+        newPlayers[prev.currentPlayerIndex] = {
+          ...currentPlayer,
+          grid: newGrid
+        };
+        
+        return {
+          ...prev,
+          players: newPlayers,
+          gamePhase: "draw" as GamePhase,
+          currentPlayerIndex: (prev.currentPlayerIndex + 1) % prev.players.length
+        };
+      });
     }
   };
 
@@ -278,6 +325,14 @@ export const GameBoard = () => {
             <ScoreDisplay players={gameState.players} />
           </div>
         </div>
+
+        <TurnPhase
+          gamePhase={gameState.gamePhase}
+          selectedCard={gameState.selectedCard}
+          onKeepCard={handleKeepCard}
+          onDiscardCard={handleDiscardCard}
+          isCurrentPlayerAI={gameState.players[gameState.currentPlayerIndex].isAI}
+        />
       </div>
     </div>
   );
