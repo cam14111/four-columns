@@ -112,6 +112,11 @@ export const GameBoard = () => {
   const handleKeepCard = () => {
     if (!gameState.selectedCard) return;
     
+    setGameState(prev => ({
+      ...prev,
+      gamePhase: "selectHiddenCard" as GamePhase,
+    }));
+    
     toast({
       title: "Action requise",
       description: "Sélectionnez une carte de votre grille à remplacer"
