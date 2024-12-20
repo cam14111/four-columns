@@ -1,10 +1,10 @@
 export const getCardImage = (value: number): string => {
   const imageMap: Record<number, string> = {
-    [-2]: "/lovable-uploads/9b09748f-b724-4887-8c32-200f2881b32b.png", // carte -2 (bleue)
-    [-1]: "/lovable-uploads/6ab1b934-bd9f-49aa-94f6-ea1d250ce134.png", // carte -1 (bleue)
-    0: "/lovable-uploads/73e6ff73-3a31-41c3-864d-76f36d3c4f0a.png",    // carte 0 (bleue)
-    1: "/lovable-uploads/34529e39-9b12-453a-82a2-9b4293a15a34.png",    // carte 1 (verte)
-    2: "/lovable-uploads/9f913513-2a61-4fd5-b2cb-47b208ef7045.png",    // carte 2 (verte)
+    [-2]: "/lovable-uploads/c619e4d7-764c-4514-a0db-91bd9d40e56b.png", // carte -2 (bleue)
+    [-1]: "/lovable-uploads/ee3dd288-4125-414d-b90c-da2d257730a6.png", // carte -1 (bleue)
+    0: "/lovable-uploads/a5b03ab7-c771-46ff-9941-a9615e506083.png",    // carte 0 (bleue)
+    1: "/lovable-uploads/44265872-3a79-4e74-93be-6107b64bb8e3.png",    // carte 1 (verte)
+    2: "/lovable-uploads/8a155917-6861-4754-b719-1504f0f63cc8.png",    // carte 2 (verte)
     3: "/lovable-uploads/32bbaff1-47f1-4344-996a-dba93db5976c.png",    // carte 3 (verte)
     4: "/lovable-uploads/06a7325f-d248-4f73-8290-914f096c41bf.png",    // carte 4 (verte)
     5: "/lovable-uploads/d7292c90-7576-4b07-8596-ce9f9c22c35e.png",    // carte 5 (jaune)
