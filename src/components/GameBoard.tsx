@@ -114,7 +114,7 @@ export const GameBoard = () => {
     
     setGameState(prev => ({
       ...prev,
-      gamePhase: "selectHiddenCard" as GamePhase,
+      gamePhase: "action" as GamePhase,
     }));
     
     toast({
@@ -141,64 +141,60 @@ export const GameBoard = () => {
 
   const handleCardClick = (clickedCard: CardType) => {
     if (gameState.gamePhase === "selectInitialCards") {
-      if (clickedCard.state === "visible") return;
+      const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+      const cardIndex = currentPlayer.grid.findIndex(c => c.id === clickedCard.id);
+      const newGrid = [...currentPlayer.grid];
+      newGrid[cardIndex] = { ...clickedCard, state: "visible" };
       
-      setGameState(prev => {
-        const currentPlayer = prev.players[prev.currentPlayerIndex];
-        const cardIndex = currentPlayer.grid.findIndex(c => c.id === clickedCard.id);
-        const newGrid = [...currentPlayer.grid];
-        newGrid[cardIndex] = { ...clickedCard, state: "visible" };
+      const newPlayers = [...gameState.players];
+      const newSelectedCards = gameState.selectedInitialCards + 1;
+      
+      if (newSelectedCards === 2) {
+        const newPlayer = {
+          ...currentPlayer,
+          grid: newGrid,
+          initialCardsSum: calculateInitialCardsSum(newGrid)
+        };
+        newPlayers[gameState.currentPlayerIndex] = newPlayer;
         
-        const newPlayers = [...prev.players];
-        const newSelectedCards = prev.selectedInitialCards + 1;
+        // Vérifie si tous les joueurs ont sélectionné leurs cartes
+        const nextPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+        const allPlayersSelected = nextPlayerIndex === 0;
         
-        if (newSelectedCards === 2) {
-          const newPlayer = {
-            ...currentPlayer,
-            grid: newGrid,
-            initialCardsSum: calculateInitialCardsSum(newGrid)
-          };
-          newPlayers[prev.currentPlayerIndex] = newPlayer;
+        if (allPlayersSelected) {
+          const firstPlayerIndex = determineFirstPlayer(newPlayers);
+          toast({
+            title: "Premier joueur déterminé !",
+            description: `${newPlayers[firstPlayerIndex].name} commence avec la plus grande somme.`
+          });
           
-          // Vérifie si tous les joueurs ont sélectionné leurs cartes
-          const nextPlayerIndex = (prev.currentPlayerIndex + 1) % prev.players.length;
-          const allPlayersSelected = nextPlayerIndex === 0;
-          
-          if (allPlayersSelected) {
-            const firstPlayerIndex = determineFirstPlayer(newPlayers);
-            toast({
-              title: "Premier joueur déterminé !",
-              description: `${newPlayers[firstPlayerIndex].name} commence avec la plus grande somme.`
-            });
-            
-            return {
-              ...prev,
-              players: newPlayers,
-              currentPlayerIndex: firstPlayerIndex,
-              gamePhase: "draw" as GamePhase,
-              selectedInitialCards: 0
-            };
-          }
-          
-          return {
-            ...prev,
+          setGameState({
+            ...gameState,
+            players: newPlayers,
+            currentPlayerIndex: firstPlayerIndex,
+            gamePhase: "draw" as GamePhase,
+            selectedInitialCards: 0
+          });
+        } else {
+          setGameState({
+            ...gameState,
             players: newPlayers,
             currentPlayerIndex: nextPlayerIndex,
             selectedInitialCards: 0
-          };
+          });
         }
-        
-        newPlayers[prev.currentPlayerIndex] = {
+      } else {
+        newPlayers[gameState.currentPlayerIndex] = {
           ...currentPlayer,
           grid: newGrid
         };
         
-        return {
-          ...prev,
+        setGameState({
+          ...gameState,
           players: newPlayers,
           selectedInitialCards: newSelectedCards
-        };
-      });
+        });
+      }
     } else if (gameState.gamePhase === "action" && gameState.selectedCard) {
       const currentPlayer = gameState.players[gameState.currentPlayerIndex];
       const cardIndex = currentPlayer.grid.findIndex(c => c.id === clickedCard.id);
@@ -229,7 +225,7 @@ export const GameBoard = () => {
         return {
           ...prev,
           players: newPlayers,
-          discardPile: [clickedCard, ...prev.discardPile],
+          discardPile: [{ ...clickedCard, state: "visible" }, ...prev.discardPile],
           selectedCard: null,
           gamePhase: "draw" as GamePhase,
           currentPlayerIndex: (prev.currentPlayerIndex + 1) % prev.players.length
@@ -265,7 +261,7 @@ export const GameBoard = () => {
     setGameState(prev => ({
       ...prev,
       deck: prev.deck.slice(1),
-      selectedCard: prev.deck[0],
+      selectedCard: { ...prev.deck[0], state: "visible" },
       gamePhase: "action" as GamePhase
     }));
   };
@@ -276,7 +272,7 @@ export const GameBoard = () => {
     setGameState(prev => ({
       ...prev,
       discardPile: prev.discardPile.slice(1),
-      selectedCard: prev.discardPile[0],
+      selectedCard: { ...prev.discardPile[0], state: "visible" },
       gamePhase: "action" as GamePhase
     }));
   };
