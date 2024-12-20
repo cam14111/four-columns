@@ -17,7 +17,11 @@ export const TurnPhase = ({
   onDiscardCard,
   isCurrentPlayerAI 
 }: TurnPhaseProps) => {
-  const showDialog = gamePhase === "action" && selectedCard !== null;
+  // Only show dialog when in action phase AND there's a selected card
+  // AND we're not waiting for the player to select a card to replace
+  const showDialog = gamePhase === "action" && 
+    selectedCard !== null && 
+    !selectedCard.state.includes("replacing");
 
   return (
     <Dialog open={showDialog}>

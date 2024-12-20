@@ -114,7 +114,8 @@ export const GameBoard = () => {
     
     setGameState(prev => ({
       ...prev,
-      gamePhase: "action" as GamePhase,
+      gamePhase: "action",
+      selectedCard: { ...prev.selectedCard!, state: "replacing" }
     }));
     
     toast({
