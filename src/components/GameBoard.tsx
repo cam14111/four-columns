@@ -47,71 +47,58 @@ export const GameBoard = () => {
   useEffect(() => {
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     
-    if (currentPlayer.isAI && gameState.gamePhase !== "roundEnd" && gameState.gamePhase !== "gameEnd") {
+    if (currentPlayer.isAI && gameState.gamePhase === "selectInitialCards") {
+      // Sélectionner automatiquement les deux cartes pour l'IA
+      setTimeout(() => {
+        // Trouver les deux cartes avec les plus petites valeurs
+        const hiddenCards = currentPlayer.grid
+          .map((card, index) => ({ card, index }))
+          .filter(item => item.card.state === "hidden")
+          .sort((a, b) => a.card.value - b.card.value);
+
+        if (hiddenCards.length > 0) {
+          const cardToReveal = hiddenCards[0];
+          const newGrid = [...currentPlayer.grid];
+          newGrid[cardToReveal.index] = { ...cardToReveal.card, state: "visible" };
+
+          if (gameState.selectedInitialCards === 1) {
+            // C'est la deuxième carte
+            const newPlayer = {
+              ...currentPlayer,
+              grid: newGrid,
+              initialCardsSum: calculateInitialCardsSum(newGrid)
+            };
+            const newPlayers = [...gameState.players];
+            newPlayers[gameState.currentPlayerIndex] = newPlayer;
+
+            setGameState(prev => ({
+              ...prev,
+              players: newPlayers,
+              currentPlayerIndex: (prev.currentPlayerIndex + 1) % prev.players.length,
+              selectedInitialCards: 0
+            }));
+          } else {
+            // C'est la première carte
+            const newPlayers = [...gameState.players];
+            newPlayers[gameState.currentPlayerIndex] = {
+              ...currentPlayer,
+              grid: newGrid
+            };
+
+            setGameState(prev => ({
+              ...prev,
+              players: newPlayers,
+              selectedInitialCards: prev.selectedInitialCards + 1
+            }));
+          }
+        }
+      }, 500);
+    } else if (currentPlayer.isAI && gameState.gamePhase !== "roundEnd" && gameState.gamePhase !== "gameEnd") {
       setTimeout(() => {
         setGameState(makeAIMove);
       }, 1000);
     }
-  }, [gameState.currentPlayerIndex, gameState.gamePhase]);
-
-  useEffect(() => {
-    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-    
-    // Vérifie si la manche est terminée
-    if (isRoundOver(currentPlayer.grid)) {
-      const updatedPlayers = calculateRoundScores(gameState.players, currentPlayer);
-      
-      if (isGameOver(updatedPlayers)) {
-        setGameState(prev => ({
-          ...prev,
-          players: updatedPlayers,
-          gamePhase: "gameEnd",
-          roundWinner: currentPlayer
-        }));
-        
-        toast({
-          title: "Partie terminée !",
-          description: `${updatedPlayers.reduce((winner, player) => 
-            player.totalScore < winner.totalScore ? player : winner
-          , updatedPlayers[0]).name} remporte la partie !`
-        });
-      } else {
-        setGameState(prev => ({
-          ...prev,
-          players: updatedPlayers,
-          gamePhase: "roundEnd",
-          roundWinner: currentPlayer
-        }));
-        
-        toast({
-          title: "Manche terminée !",
-          description: "Préparation de la prochaine manche..."
-        });
-        
-        // Prépare la prochaine manche après un délai
-        setTimeout(() => {
-          const newDeck = createDeck();
-          const { playerGrid: humanGrid, remainingDeck: deck1 } = dealInitialCards(newDeck);
-          const { playerGrid: aiGrid, remainingDeck: deck2 } = dealInitialCards(deck1);
-          
-          setGameState(prev => ({
-            ...prev,
-            players: prev.players.map((player, index) => ({
-              ...player,
-              grid: index === 0 ? humanGrid : aiGrid,
-              score: 0
-            })),
-            currentPlayerIndex: 0,
-            deck: deck2,
-            discardPile: [],
-            gamePhase: "initial",
-            selectedCard: null,
-            roundWinner: null
-          }));
-        }, 3000);
-      }
-    }
-  }, [gameState.players, gameState.currentPlayerIndex]);
+  }, [gameState.currentPlayerIndex, gameState.gamePhase, gameState.selectedInitialCards]);
 
   const handleKeepCard = () => {
     if (!gameState.selectedCard) return;
@@ -311,7 +298,8 @@ export const GameBoard = () => {
                 disabled={
                   index !== gameState.currentPlayerIndex || 
                   (gameState.gamePhase === "action" && !gameState.selectedCard) ||
-                  ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
+                  ["roundEnd", "gameEnd"].includes(gameState.gamePhase) ||
+                  (player.isAI && gameState.gamePhase === "selectInitialCards")
                 }
               />
             ))}
