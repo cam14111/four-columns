@@ -25,14 +25,18 @@ export const GameBoard = () => {
     const { playerGrid: humanGrid, remainingDeck: deck1 } = dealInitialCards(deck);
     const { playerGrid: aiGrid, remainingDeck: deck2 } = dealInitialCards(deck1);
     
+    // Prendre la première carte du deck pour la défausse
+    const firstDiscardCard = { ...deck2[0], state: "visible" };
+    const remainingDeck = deck2.slice(1);
+    
     return {
       players: [
         { id: "1", name: "Joueur", score: 0, totalScore: 0, grid: humanGrid, isAI: false },
         { id: "2", name: "IA", score: 0, totalScore: 0, grid: aiGrid, isAI: true }
       ],
       currentPlayerIndex: 0,
-      deck: deck2,
-      discardPile: [],
+      deck: remainingDeck,
+      discardPile: [firstDiscardCard],
       gamePhase: "selectInitialCards" as GamePhase,
       selectedCard: null,
       roundWinner: null,
