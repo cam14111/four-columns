@@ -47,58 +47,12 @@ export const GameBoard = () => {
   useEffect(() => {
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     
-    if (currentPlayer.isAI && gameState.gamePhase === "selectInitialCards") {
-      // Sélectionner automatiquement les deux cartes pour l'IA
-      setTimeout(() => {
-        // Trouver les deux cartes avec les plus petites valeurs
-        const hiddenCards = currentPlayer.grid
-          .map((card, index) => ({ card, index }))
-          .filter(item => item.card.state === "hidden")
-          .sort((a, b) => a.card.value - b.card.value);
-
-        if (hiddenCards.length > 0) {
-          const cardToReveal = hiddenCards[0];
-          const newGrid = [...currentPlayer.grid];
-          newGrid[cardToReveal.index] = { ...cardToReveal.card, state: "visible" };
-
-          if (gameState.selectedInitialCards === 1) {
-            // C'est la deuxième carte
-            const newPlayer = {
-              ...currentPlayer,
-              grid: newGrid,
-              initialCardsSum: calculateInitialCardsSum(newGrid)
-            };
-            const newPlayers = [...gameState.players];
-            newPlayers[gameState.currentPlayerIndex] = newPlayer;
-
-            setGameState(prev => ({
-              ...prev,
-              players: newPlayers,
-              currentPlayerIndex: (prev.currentPlayerIndex + 1) % prev.players.length,
-              selectedInitialCards: 0
-            }));
-          } else {
-            // C'est la première carte
-            const newPlayers = [...gameState.players];
-            newPlayers[gameState.currentPlayerIndex] = {
-              ...currentPlayer,
-              grid: newGrid
-            };
-
-            setGameState(prev => ({
-              ...prev,
-              players: newPlayers,
-              selectedInitialCards: prev.selectedInitialCards + 1
-            }));
-          }
-        }
-      }, 500);
-    } else if (currentPlayer.isAI && gameState.gamePhase !== "roundEnd" && gameState.gamePhase !== "gameEnd") {
+    if (currentPlayer.isAI && gameState.gamePhase !== "roundEnd" && gameState.gamePhase !== "gameEnd") {
       setTimeout(() => {
         setGameState(makeAIMove);
       }, 1000);
     }
-  }, [gameState.currentPlayerIndex, gameState.gamePhase, gameState.selectedInitialCards]);
+  }, [gameState.currentPlayerIndex, gameState.gamePhase]);
 
   useEffect(() => {
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
@@ -357,8 +311,7 @@ export const GameBoard = () => {
                 disabled={
                   index !== gameState.currentPlayerIndex || 
                   (gameState.gamePhase === "action" && !gameState.selectedCard) ||
-                  ["roundEnd", "gameEnd"].includes(gameState.gamePhase) ||
-                  (player.isAI && gameState.gamePhase === "selectInitialCards")
+                  ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
                 }
               />
             ))}
