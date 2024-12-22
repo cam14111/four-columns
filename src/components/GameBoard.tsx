@@ -26,7 +26,7 @@ export const GameBoard = () => {
     const { playerGrid: aiGrid, remainingDeck: deck2 } = dealInitialCards(deck1);
     
     // Prendre la première carte du deck pour la défausse
-    const firstDiscardCard = { ...deck2[0], state: "visible" };
+    const firstDiscardCard = { ...deck2[0], state: "visible" as const };
     const remainingDeck = deck2.slice(1);
     
     return {
@@ -274,12 +274,20 @@ export const GameBoard = () => {
   const handleDrawFromDiscard = () => {
     if (gameState.gamePhase !== "draw" || gameState.discardPile.length === 0) return;
     
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    const cardToKeep = gameState.discardPile[0];
+    
     setGameState(prev => ({
       ...prev,
       discardPile: prev.discardPile.slice(1),
-      selectedCard: { ...prev.discardPile[0], state: "visible" },
+      selectedCard: { ...cardToKeep, state: "replacing" },
       gamePhase: "action" as GamePhase
     }));
+    
+    toast({
+      title: "Action requise",
+      description: "Sélectionnez une carte de votre grille à remplacer"
+    });
   };
 
   return (
