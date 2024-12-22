@@ -100,6 +100,65 @@ export const GameBoard = () => {
     }
   }, [gameState.currentPlayerIndex, gameState.gamePhase, gameState.selectedInitialCards]);
 
+  useEffect(() => {
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    
+    // Vérifie si la manche est terminée
+    if (isRoundOver(currentPlayer.grid)) {
+      const updatedPlayers = calculateRoundScores(gameState.players, currentPlayer);
+      
+      if (isGameOver(updatedPlayers)) {
+        setGameState(prev => ({
+          ...prev,
+          players: updatedPlayers,
+          gamePhase: "gameEnd",
+          roundWinner: currentPlayer
+        }));
+        
+        toast({
+          title: "Partie terminée !",
+          description: `${updatedPlayers.reduce((winner, player) => 
+            player.totalScore < winner.totalScore ? player : winner
+          , updatedPlayers[0]).name} remporte la partie !`
+        });
+      } else {
+        setGameState(prev => ({
+          ...prev,
+          players: updatedPlayers,
+          gamePhase: "roundEnd",
+          roundWinner: currentPlayer
+        }));
+        
+        toast({
+          title: "Manche terminée !",
+          description: "Préparation de la prochaine manche..."
+        });
+        
+        // Prépare la prochaine manche après un délai
+        setTimeout(() => {
+          const newDeck = createDeck();
+          const { playerGrid: humanGrid, remainingDeck: deck1 } = dealInitialCards(newDeck);
+          const { playerGrid: aiGrid, remainingDeck: deck2 } = dealInitialCards(deck1);
+          
+          setGameState(prev => ({
+            ...prev,
+            players: prev.players.map((player, index) => ({
+              ...player,
+              grid: index === 0 ? humanGrid : aiGrid,
+              score: 0
+            })),
+            currentPlayerIndex: 0,
+            deck: deck2,
+            discardPile: [],
+            gamePhase: "initial",
+            selectedCard: null,
+            roundWinner: null
+          }));
+        }, 3000);
+      }
+    }
+  }, [gameState.players, gameState.currentPlayerIndex]);
+
   const handleKeepCard = () => {
     if (!gameState.selectedCard) return;
     
