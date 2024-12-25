@@ -1,4 +1,4 @@
-import { GameState } from "@/lib/types";
+import { GameState, GamePhase } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 
 interface GameActionsProps {

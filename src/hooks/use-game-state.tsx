@@ -9,7 +9,8 @@ import {
   calculateRoundScores,
   determineFirstPlayer,
   calculateInitialCardsSum,
-  checkColumnMatch
+  checkColumnMatch,
+  makeAIMove
 } from "@/lib/gameLogic";
 import { selectInitialCardsForAI } from "@/lib/aiLogic";
 
