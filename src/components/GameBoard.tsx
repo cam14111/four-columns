@@ -285,6 +285,19 @@ export const GameBoard = () => {
         const newGrid = [...prev.players[prev.currentPlayerIndex].grid];
         newGrid[cardIndex] = { ...clickedCard, state: "visible" };
         
+        if (checkColumnMatch(newGrid, Math.floor(cardIndex / 3))) {
+          newGrid.forEach((card, index) => {
+            if (Math.floor(index / 3) === Math.floor(cardIndex / 3)) {
+              newGrid[index] = { ...card, state: "hidden" };
+            }
+          });
+          
+          toast({
+            title: "Colonne complète !",
+            description: "Les cartes de la colonne ont été défaussées."
+          });
+        }
+        
         const newPlayers = [...prev.players];
         newPlayers[prev.currentPlayerIndex] = {
           ...currentPlayer,
