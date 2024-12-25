@@ -248,8 +248,17 @@ export const GameBoard = () => {
       setGameState(prev => {
         const newGrid = [...prev.players[prev.currentPlayerIndex].grid];
         newGrid[cardIndex] = { ...prev.selectedCard!, state: "visible" };
+        let newDiscardPile = [{ ...clickedCard, state: "visible" }, ...prev.discardPile];
         
         if (checkColumnMatch(newGrid, Math.floor(cardIndex / 3))) {
+          const columnCards = newGrid.filter((_, index) => 
+            Math.floor(index / 3) === Math.floor(cardIndex / 3)
+          );
+          
+          // Ajouter les cartes de la colonne à la défausse
+          newDiscardPile = [...columnCards, ...newDiscardPile];
+          
+          // Cacher les cartes de la colonne
           newGrid.forEach((card, index) => {
             if (Math.floor(index / 3) === Math.floor(cardIndex / 3)) {
               newGrid[index] = { ...card, state: "hidden" };
@@ -271,7 +280,7 @@ export const GameBoard = () => {
         return {
           ...prev,
           players: newPlayers,
-          discardPile: [{ ...clickedCard, state: "visible" }, ...prev.discardPile],
+          discardPile: newDiscardPile,
           selectedCard: null,
           gamePhase: "draw" as GamePhase,
           currentPlayerIndex: (prev.currentPlayerIndex + 1) % prev.players.length
@@ -284,8 +293,17 @@ export const GameBoard = () => {
       setGameState(prev => {
         const newGrid = [...prev.players[prev.currentPlayerIndex].grid];
         newGrid[cardIndex] = { ...clickedCard, state: "visible" };
+        let newDiscardPile = [...prev.discardPile];
         
         if (checkColumnMatch(newGrid, Math.floor(cardIndex / 3))) {
+          const columnCards = newGrid.filter((_, index) => 
+            Math.floor(index / 3) === Math.floor(cardIndex / 3)
+          );
+          
+          // Ajouter les cartes de la colonne à la défausse
+          newDiscardPile = [...columnCards, ...newDiscardPile];
+          
+          // Cacher les cartes de la colonne
           newGrid.forEach((card, index) => {
             if (Math.floor(index / 3) === Math.floor(cardIndex / 3)) {
               newGrid[index] = { ...card, state: "hidden" };
@@ -307,6 +325,7 @@ export const GameBoard = () => {
         return {
           ...prev,
           players: newPlayers,
+          discardPile: newDiscardPile,
           gamePhase: "draw" as GamePhase,
           currentPlayerIndex: (prev.currentPlayerIndex + 1) % prev.players.length
         };
