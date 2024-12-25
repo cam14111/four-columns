@@ -247,8 +247,8 @@ export const GameBoard = () => {
       
       setGameState(prev => {
         const newGrid = [...prev.players[prev.currentPlayerIndex].grid];
-        newGrid[cardIndex] = { ...prev.selectedCard!, state: "visible" };
-        let newDiscardPile = [{ ...clickedCard, state: "visible" }, ...prev.discardPile];
+        newGrid[cardIndex] = { ...prev.selectedCard!, state: "visible" as const };
+        let newDiscardPile = [{ ...clickedCard, state: "visible" as const }, ...prev.discardPile];
         
         if (checkColumnMatch(newGrid, Math.floor(cardIndex / 3))) {
           const columnCards = newGrid.filter((_, index) => 
@@ -261,7 +261,7 @@ export const GameBoard = () => {
           // Cacher les cartes de la colonne
           newGrid.forEach((card, index) => {
             if (Math.floor(index / 3) === Math.floor(cardIndex / 3)) {
-              newGrid[index] = { ...card, state: "hidden" };
+              newGrid[index] = { ...card, state: "hidden" as const };
             }
           });
           
@@ -292,7 +292,7 @@ export const GameBoard = () => {
       
       setGameState(prev => {
         const newGrid = [...prev.players[prev.currentPlayerIndex].grid];
-        newGrid[cardIndex] = { ...clickedCard, state: "visible" };
+        newGrid[cardIndex] = { ...clickedCard, state: "visible" as const };
         let newDiscardPile = [...prev.discardPile];
         
         if (checkColumnMatch(newGrid, Math.floor(cardIndex / 3))) {
@@ -306,7 +306,7 @@ export const GameBoard = () => {
           // Cacher les cartes de la colonne
           newGrid.forEach((card, index) => {
             if (Math.floor(index / 3) === Math.floor(cardIndex / 3)) {
-              newGrid[index] = { ...card, state: "hidden" };
+              newGrid[index] = { ...card, state: "hidden" as const };
             }
           });
           
