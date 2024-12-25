@@ -86,22 +86,39 @@ export const useCardClickHandler = ({ gameState, setGameState }: CardClickHandle
       let newDiscardPile = [{ ...clickedCard, state: "visible" as const }, ...prev.discardPile];
       
       if (checkColumnMatch(newGrid, Math.floor(cardIndex / 3))) {
+        const columnIndex = Math.floor(cardIndex / 3);
         const columnCards = newGrid.filter((_, index) => 
-          Math.floor(index / 3) === Math.floor(cardIndex / 3)
+          Math.floor(index / 3) === columnIndex
         );
         
+        // Ajouter les cartes à la défausse
         newDiscardPile = [...columnCards, ...newDiscardPile];
         
-        newGrid.forEach((card, index) => {
-          if (Math.floor(index / 3) === Math.floor(cardIndex / 3)) {
-            newGrid[index] = { ...card, state: "hidden" as const };
-          }
-        });
+        // Retirer les cartes de la colonne de la grille
+        const filteredGrid = newGrid.filter((_, index) => 
+          Math.floor(index / 3) !== columnIndex
+        );
+        
+        // Mettre à jour la grille du joueur
+        const newPlayers = [...prev.players];
+        newPlayers[prev.currentPlayerIndex] = {
+          ...currentPlayer,
+          grid: filteredGrid
+        };
         
         toast({
           title: "Colonne complète !",
           description: "Les cartes de la colonne ont été défaussées."
         });
+        
+        return {
+          ...prev,
+          players: newPlayers,
+          discardPile: newDiscardPile,
+          selectedCard: null,
+          gamePhase: "draw",
+          currentPlayerIndex: (prev.currentPlayerIndex + 1) % prev.players.length
+        };
       }
       
       const newPlayers = [...prev.players];
@@ -131,22 +148,38 @@ export const useCardClickHandler = ({ gameState, setGameState }: CardClickHandle
       let newDiscardPile = [...prev.discardPile];
       
       if (checkColumnMatch(newGrid, Math.floor(cardIndex / 3))) {
+        const columnIndex = Math.floor(cardIndex / 3);
         const columnCards = newGrid.filter((_, index) => 
-          Math.floor(index / 3) === Math.floor(cardIndex / 3)
+          Math.floor(index / 3) === columnIndex
         );
         
+        // Ajouter les cartes à la défausse
         newDiscardPile = [...columnCards, ...newDiscardPile];
         
-        newGrid.forEach((card, index) => {
-          if (Math.floor(index / 3) === Math.floor(cardIndex / 3)) {
-            newGrid[index] = { ...card, state: "hidden" as const };
-          }
-        });
+        // Retirer les cartes de la colonne de la grille
+        const filteredGrid = newGrid.filter((_, index) => 
+          Math.floor(index / 3) !== columnIndex
+        );
+        
+        // Mettre à jour la grille du joueur
+        const newPlayers = [...prev.players];
+        newPlayers[prev.currentPlayerIndex] = {
+          ...currentPlayer,
+          grid: filteredGrid
+        };
         
         toast({
           title: "Colonne complète !",
           description: "Les cartes de la colonne ont été défaussées."
         });
+        
+        return {
+          ...prev,
+          players: newPlayers,
+          discardPile: newDiscardPile,
+          gamePhase: "draw",
+          currentPlayerIndex: (prev.currentPlayerIndex + 1) % prev.players.length
+        };
       }
       
       const newPlayers = [...prev.players];
