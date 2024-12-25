@@ -5,6 +5,8 @@ import { GameControls } from "./GameControls";
 import { ScoreDisplay } from "./ScoreDisplay";
 import { DiscardPile } from "./DiscardPile";
 import { TurnPhase } from "./TurnPhase";
+import { InitialCardsSelection } from "./InitialCardsSelection";
+import { selectInitialCardsForAI } from "@/lib/aiLogic";
 import { 
   createDeck, 
   dealInitialCards, 
@@ -25,7 +27,6 @@ export const GameBoard = () => {
     const { playerGrid: humanGrid, remainingDeck: deck1 } = dealInitialCards(deck);
     const { playerGrid: aiGrid, remainingDeck: deck2 } = dealInitialCards(deck1);
     
-    // Prendre la première carte du deck pour la défausse
     const firstDiscardCard = { ...deck2[0], state: "visible" as const };
     const remainingDeck = deck2.slice(1);
     
@@ -47,10 +48,51 @@ export const GameBoard = () => {
   useEffect(() => {
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     
-    if (currentPlayer.isAI && gameState.gamePhase !== "roundEnd" && gameState.gamePhase !== "gameEnd") {
-      setTimeout(() => {
-        setGameState(makeAIMove);
-      }, 1000);
+    if (currentPlayer.isAI) {
+      if (gameState.gamePhase === "selectInitialCards") {
+        // Délai artificiel pour simuler la "réflexion" de l'IA
+        setTimeout(() => {
+          const { newGrid, initialCardsSum } = selectInitialCardsForAI(currentPlayer);
+          
+          setGameState(prev => {
+            const newPlayers = [...prev.players];
+            newPlayers[prev.currentPlayerIndex] = {
+              ...currentPlayer,
+              grid: newGrid,
+              initialCardsSum
+            };
+            
+            // Si tous les joueurs ont sélectionné leurs cartes
+            if (prev.currentPlayerIndex === prev.players.length - 1) {
+              const firstPlayerIndex = determineFirstPlayer(newPlayers);
+              toast({
+                title: "Premier joueur déterminé !",
+                description: `${newPlayers[firstPlayerIndex].name} commence avec la plus grande somme.`
+              });
+              
+              return {
+                ...prev,
+                players: newPlayers,
+                currentPlayerIndex: firstPlayerIndex,
+                gamePhase: "draw" as GamePhase,
+                selectedInitialCards: 0
+              };
+            }
+            
+            // Sinon, passer au joueur suivant
+            return {
+              ...prev,
+              players: newPlayers,
+              currentPlayerIndex: prev.currentPlayerIndex + 1,
+              selectedInitialCards: 0
+            };
+          });
+        }, 1000);
+      } else if (gameState.gamePhase !== "roundEnd" && gameState.gamePhase !== "gameEnd") {
+        setTimeout(() => {
+          setGameState(makeAIMove);
+        }, 1000);
+      }
     }
   }, [gameState.currentPlayerIndex, gameState.gamePhase]);
 
@@ -162,7 +204,6 @@ export const GameBoard = () => {
         };
         newPlayers[gameState.currentPlayerIndex] = newPlayer;
         
-        // Vérifie si tous les joueurs ont sélectionné leurs cartes
         const nextPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
         const allPlayersSelected = nextPlayerIndex === 0;
         
@@ -295,10 +336,11 @@ export const GameBoard = () => {
       <div className="max-w-4xl mx-auto space-y-8">
         <h1 className="text-3xl font-bold text-center text-game-primary">Skyjo</h1>
         
-        {gameState.gamePhase === "selectInitialCards" && (
-          <div className="text-center text-lg text-game-primary mb-4">
-            {`${gameState.players[gameState.currentPlayerIndex].name}, sélectionnez ${2 - gameState.selectedInitialCards} carte${gameState.selectedInitialCards === 1 ? '' : 's'}`}
-          </div>
+        {gameState.gamePhase === "selectInitialCards" && !gameState.players[gameState.currentPlayerIndex].isAI && (
+          <InitialCardsSelection 
+            currentPlayer={gameState.players[gameState.currentPlayerIndex]}
+            selectedInitialCards={gameState.selectedInitialCards}
+          />
         )}
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -310,6 +352,7 @@ export const GameBoard = () => {
                 onCardClick={handleCardClick}
                 disabled={
                   index !== gameState.currentPlayerIndex || 
+                  player.isAI ||
                   (gameState.gamePhase === "action" && !gameState.selectedCard) ||
                   ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
                 }
