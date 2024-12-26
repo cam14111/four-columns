@@ -16,7 +16,7 @@ export const ScoreDisplay = ({ players }: ScoreDisplayProps) => {
           >
             <div className="flex justify-between items-center">
               <span className="font-medium">{player.name}</span>
-              <span className="text-game-primary font-bold">{player.totalScore}</span>
+              <span className="text-[#0EA5E9] font-bold">{player.totalScore}</span>
             </div>
             <div className="text-sm text-gray-500">
               Manche en cours: {player.score}
