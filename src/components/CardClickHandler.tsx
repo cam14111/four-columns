@@ -1,6 +1,7 @@
 import { Card as CardType, GameState, Player } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { checkColumnMatch, calculateInitialCardsSum, determineFirstPlayer } from "@/lib/gameLogic";
+import { updatePlayerScores, isGameOver, determineWinner } from "@/lib/scoringLogic";
 
 interface CardClickHandlerProps {
   gameState: GameState;
@@ -9,6 +10,40 @@ interface CardClickHandlerProps {
 
 export const useCardClickHandler = ({ gameState, setGameState }: CardClickHandlerProps) => {
   const { toast } = useToast();
+
+  const checkRoundEnd = (currentPlayer: Player, players: Player[]) => {
+    if (currentPlayer.grid.every(card => card.state === "visible")) {
+      const updatedPlayers = updatePlayerScores(players);
+      
+      if (isGameOver(updatedPlayers)) {
+        const winners = determineWinner(updatedPlayers);
+        const winnerNames = winners.map(w => w.name).join(" et ");
+        
+        toast({
+          title: "Fin de la partie !",
+          description: `${winnerNames} ${winners.length > 1 ? 'remportent' : 'remporte'} la partie avec ${winners[0].totalScore} points !`
+        });
+        
+        return {
+          players: updatedPlayers,
+          gamePhase: "gameEnd" as const,
+          currentPlayerIndex: 0
+        };
+      } else {
+        toast({
+          title: "Fin de la manche !",
+          description: "Les scores ont été mis à jour. Une nouvelle manche va commencer."
+        });
+        
+        return {
+          players: updatedPlayers,
+          gamePhase: "roundEnd" as const,
+          currentPlayerIndex: 0
+        };
+      }
+    }
+    return null;
+  };
 
   const handleCardClick = (clickedCard: CardType) => {
     if (gameState.gamePhase === "selectInitialCards") {
@@ -91,15 +126,11 @@ export const useCardClickHandler = ({ gameState, setGameState }: CardClickHandle
           Math.floor(index / 3) === columnIndex
         );
         
-        // Ajouter les cartes à la défausse
         newDiscardPile = [...columnCards, ...newDiscardPile];
-        
-        // Retirer les cartes de la colonne de la grille
         const filteredGrid = newGrid.filter((_, index) => 
           Math.floor(index / 3) !== columnIndex
         );
         
-        // Mettre à jour la grille du joueur
         const newPlayers = [...prev.players];
         newPlayers[prev.currentPlayerIndex] = {
           ...currentPlayer,
@@ -110,6 +141,20 @@ export const useCardClickHandler = ({ gameState, setGameState }: CardClickHandle
           title: "Colonne complète !",
           description: "Les cartes de la colonne ont été défaussées."
         });
+
+        const roundEndState = checkRoundEnd(
+          { ...currentPlayer, grid: filteredGrid },
+          newPlayers
+        );
+        
+        if (roundEndState) {
+          return {
+            ...prev,
+            ...roundEndState,
+            discardPile: newDiscardPile,
+            selectedCard: null
+          };
+        }
         
         return {
           ...prev,
@@ -126,6 +171,20 @@ export const useCardClickHandler = ({ gameState, setGameState }: CardClickHandle
         ...currentPlayer,
         grid: newGrid
       };
+
+      const roundEndState = checkRoundEnd(
+        { ...currentPlayer, grid: newGrid },
+        newPlayers
+      );
+      
+      if (roundEndState) {
+        return {
+          ...prev,
+          ...roundEndState,
+          discardPile: newDiscardPile,
+          selectedCard: null
+        };
+      }
       
       return {
         ...prev,
@@ -153,15 +212,11 @@ export const useCardClickHandler = ({ gameState, setGameState }: CardClickHandle
           Math.floor(index / 3) === columnIndex
         );
         
-        // Ajouter les cartes à la défausse
         newDiscardPile = [...columnCards, ...newDiscardPile];
-        
-        // Retirer les cartes de la colonne de la grille
         const filteredGrid = newGrid.filter((_, index) => 
           Math.floor(index / 3) !== columnIndex
         );
         
-        // Mettre à jour la grille du joueur
         const newPlayers = [...prev.players];
         newPlayers[prev.currentPlayerIndex] = {
           ...currentPlayer,
@@ -172,6 +227,19 @@ export const useCardClickHandler = ({ gameState, setGameState }: CardClickHandle
           title: "Colonne complète !",
           description: "Les cartes de la colonne ont été défaussées."
         });
+
+        const roundEndState = checkRoundEnd(
+          { ...currentPlayer, grid: filteredGrid },
+          newPlayers
+        );
+        
+        if (roundEndState) {
+          return {
+            ...prev,
+            ...roundEndState,
+            discardPile: newDiscardPile
+          };
+        }
         
         return {
           ...prev,
@@ -187,6 +255,19 @@ export const useCardClickHandler = ({ gameState, setGameState }: CardClickHandle
         ...currentPlayer,
         grid: newGrid
       };
+
+      const roundEndState = checkRoundEnd(
+        { ...currentPlayer, grid: newGrid },
+        newPlayers
+      );
+      
+      if (roundEndState) {
+        return {
+          ...prev,
+          ...roundEndState,
+          discardPile: newDiscardPile
+        };
+      }
       
       return {
         ...prev,
