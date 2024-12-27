@@ -7,6 +7,9 @@ import { ScoreDisplay } from "./ScoreDisplay";
 import { DiscardPile } from "./DiscardPile";
 import { TurnPhase } from "./TurnPhase";
 import { InitialCardsSelection } from "./InitialCardsSelection";
+import { PlayerNameForm } from "./PlayerNameForm";
+import { saveGameScore } from "@/lib/scoreService";
+import { useToast } from "@/hooks/use-toast";
 
 export const GameBoard = () => {
   const { gameState, setGameState } = useGameState();
@@ -17,6 +20,49 @@ export const GameBoard = () => {
     handleDrawFromDeck, 
     handleDrawFromDiscard 
   } = GameActions({ gameState, setGameState });
+  const { toast } = useToast();
+
+  const handlePlayerNameSubmit = (name: string) => {
+    setGameState(prev => ({
+      ...prev,
+      players: [
+        { ...prev.players[0], name },
+        prev.players[1]
+      ]
+    }));
+  };
+
+  // Ajout de la sauvegarde des scores à la fin de la partie
+  const handleGameEnd = async () => {
+    const humanPlayer = gameState.players[0];
+    try {
+      await saveGameScore(
+        humanPlayer.name,
+        humanPlayer.score,
+        humanPlayer.totalScore
+      );
+      toast({
+        title: "Score sauvegardé",
+        description: "Votre score a été enregistré avec succès !",
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de sauvegarder le score",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Appel de handleGameEnd quand la partie se termine
+  if (gameState.gamePhase === "gameEnd" && gameState.players[0].name !== "Joueur") {
+    handleGameEnd();
+  }
+
+  // Afficher le formulaire de nom si le nom par défaut n'a pas été changé
+  if (gameState.players[0].name === "Joueur") {
+    return <PlayerNameForm onSubmit={handlePlayerNameSubmit} />;
+  }
 
   return (
     <div className="min-h-screen bg-game-background p-8">
