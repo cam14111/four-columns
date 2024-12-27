@@ -10,7 +10,7 @@ export const getCardImage = (value: number): string => {
     5: "/lovable-uploads/574a7e83-ed9e-4906-a141-0191001cb8b6.png",    // carte 5 (jaune)
     6: "/lovable-uploads/965b3795-c0f9-47ef-8557-893ba4d7ffb5.png",    // carte 6 (jaune)
     7: "/lovable-uploads/6e18ca71-0a17-457f-a0cb-92f67ffe64a9.png",    // carte 7 (jaune)
-    8: "/lovable-uploads/0c97cd57-ade2-4066-aded-192491d63fcb.png",    // carte 8 (jaune)
+    8: "/lovable-uploads/6fd11f58-c633-4381-87b1-ce04a3086b6b.png",    // carte 8 (jaune)
     9: "/lovable-uploads/fb51b023-3025-4b93-93a7-2e9775223fb4.png",    // carte 9 (rouge)
     10: "/lovable-uploads/3f13bfee-c938-4ab4-95fb-2068e8e4c797.png",   // carte 10 (rouge)
     11: "/lovable-uploads/8b908bcb-5a79-4317-8d94-135c7a020a8e.png",   // carte 11 (rouge)
