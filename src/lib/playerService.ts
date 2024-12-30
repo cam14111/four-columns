@@ -5,7 +5,7 @@ export const isPlayerAuthorized = async (playerName: string): Promise<boolean> =
     .from('authorized_players')
     .select('player_name')
     .eq('player_name', playerName)
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error('Error checking player authorization:', error);
