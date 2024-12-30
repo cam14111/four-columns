@@ -1,12 +1,34 @@
 import { Player } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 interface ScoreDisplayProps {
   players: Player[];
+  onNewGame: () => void;
+  onContinueGame: () => void;
 }
 
-export const ScoreDisplay = ({ players }: ScoreDisplayProps) => {
+export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDisplayProps) => {
+  const { toast } = useToast();
+
+  const handleNewGame = () => {
+    onNewGame();
+    toast({
+      title: "Nouvelle partie",
+      description: "Les scores ont été remis à zéro"
+    });
+  };
+
+  const handleContinueGame = () => {
+    onContinueGame();
+    toast({
+      title: "Nouvelle manche",
+      description: "Les scores de la manche précédente ont été ajoutés au total"
+    });
+  };
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
       <h3 className="text-lg font-semibold text-game-primary">Scores</h3>
       <div className="space-y-1">
         {players.map((player) => (
@@ -31,6 +53,22 @@ export const ScoreDisplay = ({ players }: ScoreDisplayProps) => {
             </div>
           </div>
         ))}
+      </div>
+      <div className="flex flex-col gap-2">
+        <Button 
+          onClick={handleNewGame}
+          variant="default"
+          className="w-full"
+        >
+          Nouvelle partie
+        </Button>
+        <Button 
+          onClick={handleContinueGame}
+          variant="secondary"
+          className="w-full"
+        >
+          Continuer la partie
+        </Button>
       </div>
     </div>
   );

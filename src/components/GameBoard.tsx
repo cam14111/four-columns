@@ -10,6 +10,7 @@ import { InitialCardsSelection } from "./InitialCardsSelection";
 import { PlayerNameForm } from "./PlayerNameForm";
 import { saveGameScore } from "@/lib/scoreService";
 import { useToast } from "@/hooks/use-toast";
+import { createDeck, dealInitialCards } from "@/lib/gameLogic";
 
 export const GameBoard = () => {
   const { gameState, setGameState } = useGameState();
@@ -29,6 +30,57 @@ export const GameBoard = () => {
         { ...prev.players[0], name },
         prev.players[1]
       ]
+    }));
+  };
+
+  const handleNewGame = () => {
+    const deck = createDeck();
+    const { playerGrid: humanGrid, remainingDeck: deck1 } = dealInitialCards(deck);
+    const { playerGrid: aiGrid, remainingDeck: deck2 } = dealInitialCards(deck1);
+    
+    const firstDiscardCard = { ...deck2[0], state: "visible" as const };
+    const remainingDeck = deck2.slice(1);
+    
+    setGameState(prev => ({
+      ...prev,
+      players: prev.players.map(player => ({
+        ...player,
+        score: 0,
+        totalScore: 0,
+        grid: player.isAI ? aiGrid : humanGrid,
+      })),
+      currentPlayerIndex: 0,
+      deck: remainingDeck,
+      discardPile: [firstDiscardCard],
+      gamePhase: "selectInitialCards",
+      selectedCard: null,
+      roundWinner: null,
+      selectedInitialCards: 0
+    }));
+  };
+
+  const handleContinueGame = () => {
+    const deck = createDeck();
+    const { playerGrid: humanGrid, remainingDeck: deck1 } = dealInitialCards(deck);
+    const { playerGrid: aiGrid, remainingDeck: deck2 } = dealInitialCards(deck1);
+    
+    const firstDiscardCard = { ...deck2[0], state: "visible" as const };
+    const remainingDeck = deck2.slice(1);
+    
+    setGameState(prev => ({
+      ...prev,
+      players: prev.players.map(player => ({
+        ...player,
+        score: 0,
+        grid: player.isAI ? aiGrid : humanGrid,
+      })),
+      currentPlayerIndex: 0,
+      deck: remainingDeck,
+      discardPile: [firstDiscardCard],
+      gamePhase: "selectInitialCards",
+      selectedCard: null,
+      roundWinner: null,
+      selectedInitialCards: 0
     }));
   };
 
@@ -112,7 +164,11 @@ export const GameBoard = () => {
                 ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
               }
             />
-            <ScoreDisplay players={gameState.players} />
+            <ScoreDisplay 
+              players={gameState.players} 
+              onNewGame={handleNewGame}
+              onContinueGame={handleContinueGame}
+            />
           </div>
         </div>
 
