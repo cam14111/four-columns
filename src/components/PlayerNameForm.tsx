@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { isPlayerAuthorized } from "@/lib/playerService";
 
 interface PlayerNameFormProps {
   onSubmit: (name: string) => void;
@@ -9,9 +10,10 @@ interface PlayerNameFormProps {
 
 export const PlayerNameForm = ({ onSubmit }: PlayerNameFormProps) => {
   const [name, setName] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (name.trim().length < 2) {
       toast({
@@ -21,7 +23,28 @@ export const PlayerNameForm = ({ onSubmit }: PlayerNameFormProps) => {
       });
       return;
     }
-    onSubmit(name.trim());
+
+    setIsLoading(true);
+    try {
+      const isAuthorized = await isPlayerAuthorized(name.trim());
+      if (!isAuthorized) {
+        toast({
+          title: "Accès refusé",
+          description: "Vous n'êtes pas autorisé à jouer. Veuillez contacter l'administrateur.",
+          variant: "destructive",
+        });
+        return;
+      }
+      onSubmit(name.trim());
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de la vérification de l'autorisation",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -39,9 +62,10 @@ export const PlayerNameForm = ({ onSubmit }: PlayerNameFormProps) => {
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="w-full"
+          disabled={isLoading}
         />
-        <Button type="submit" className="w-full">
-          Commencer
+        <Button type="submit" className="w-full" disabled={isLoading}>
+          {isLoading ? "Vérification..." : "Commencer"}
         </Button>
       </form>
     </div>
