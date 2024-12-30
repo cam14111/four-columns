@@ -27,6 +27,12 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
     });
   };
 
+  const calculateVisibleCardsSum = (player: Player): number => {
+    return player.grid
+      .filter(card => card.state === "visible")
+      .reduce((sum, card) => sum + card.value, 0);
+  };
+
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-game-primary">Scores</h3>
@@ -48,7 +54,7 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-500">Manche en cours</span>
               <span className="text-md font-semibold text-gray-700">
-                {player.score}
+                {calculateVisibleCardsSum(player)}
               </span>
             </div>
           </div>
