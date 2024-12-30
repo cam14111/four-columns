@@ -146,24 +146,26 @@ export const GameBoard = () => {
           </div>
           
           <div className="space-y-8">
-            <GameControls
-              gameState={gameState}
-              onDrawFromDeck={handleDrawFromDeck}
-              disabled={
-                gameState.players[gameState.currentPlayerIndex].isAI ||
-                gameState.gamePhase === "selectInitialCards" ||
-                ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
-              }
-            />
-            <DiscardPile 
-              discardPile={gameState.discardPile}
-              onDrawFromDiscard={handleDrawFromDiscard}
-              disabled={
-                gameState.players[gameState.currentPlayerIndex].isAI ||
-                gameState.gamePhase !== "draw" ||
-                ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
-              }
-            />
+            <div className="flex gap-4 items-start">
+              <GameControls
+                gameState={gameState}
+                onDrawFromDeck={handleDrawFromDeck}
+                disabled={
+                  gameState.players[gameState.currentPlayerIndex].isAI ||
+                  gameState.gamePhase === "selectInitialCards" ||
+                  ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
+                }
+              />
+              <DiscardPile 
+                discardPile={gameState.discardPile}
+                onDrawFromDiscard={handleDrawFromDiscard}
+                disabled={
+                  gameState.players[gameState.currentPlayerIndex].isAI ||
+                  gameState.gamePhase !== "draw" ||
+                  ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
+                }
+              />
+            </div>
             <ScoreDisplay 
               players={gameState.players} 
               onNewGame={handleNewGame}

@@ -10,7 +10,9 @@ interface DiscardPileProps {
 export const DiscardPile = ({ discardPile, onDrawFromDiscard, disabled }: DiscardPileProps) => {
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold text-game-primary">Défausse</h2>
+      <div className="text-lg font-medium text-game-primary">
+        Défausse
+      </div>
       <div 
         className="relative h-28"
         onClick={() => {
