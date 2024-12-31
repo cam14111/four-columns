@@ -2,6 +2,7 @@ import { Card as CardType, GameState, Player } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { checkColumnMatch, calculateInitialCardsSum, determineFirstPlayer } from "@/lib/gameLogic";
 import { updatePlayerScores, isGameOver, determineWinner } from "@/lib/scoringLogic";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CardClickHandlerProps {
   gameState: GameState;
@@ -11,9 +12,31 @@ interface CardClickHandlerProps {
 export const useCardClickHandler = ({ gameState, setGameState }: CardClickHandlerProps) => {
   const { toast } = useToast();
 
+  const saveRoundScores = async (players: Player[], roundNumber: number) => {
+    const roundScores = players.map(player => ({
+      player_name: player.name,
+      round_number: roundNumber,
+      round_score: player.score
+    }));
+
+    const { error } = await supabase
+      .from('round_history')
+      .insert(roundScores);
+
+    if (error) {
+      console.error('Error saving round scores:', error);
+    }
+  };
+
   const checkRoundEnd = (currentPlayer: Player, players: Player[]) => {
     if (currentPlayer.grid.every(card => card.state === "visible")) {
       const updatedPlayers = updatePlayerScores(players);
+      
+      // Calculer le numéro de la manche actuelle
+      const roundNumber = Math.floor(updatedPlayers[0].totalScore / updatedPlayers[0].score);
+      
+      // Sauvegarder les scores de la manche
+      saveRoundScores(updatedPlayers, roundNumber);
       
       if (isGameOver(updatedPlayers)) {
         const winners = determineWinner(updatedPlayers);

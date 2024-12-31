@@ -1,6 +1,8 @@
 import { Player } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ScoreDisplayProps {
   players: Player[];
@@ -8,8 +10,38 @@ interface ScoreDisplayProps {
   onContinueGame: () => void;
 }
 
+interface RoundHistory {
+  id: string;
+  player_name: string;
+  round_number: number;
+  round_score: number;
+  created_at: string;
+}
+
 export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDisplayProps) => {
   const { toast } = useToast();
+
+  const { data: roundHistory } = useQuery({
+    queryKey: ['roundHistory'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('round_history')
+        .select('*')
+        .order('created_at', { ascending: true });
+      
+      if (error) throw error;
+      return data as RoundHistory[];
+    }
+  });
+
+  // Grouper l'historique par numéro de manche
+  const roundsByNumber = roundHistory?.reduce((acc, round) => {
+    if (!acc[round.round_number]) {
+      acc[round.round_number] = [];
+    }
+    acc[round.round_number].push(round);
+    return acc;
+  }, {} as Record<number, RoundHistory[]>) || {};
 
   const handleNewGame = () => {
     onNewGame();
@@ -60,6 +92,29 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
           </div>
         ))}
       </div>
+
+      {/* Historique des manches */}
+      <div className="mt-4 space-y-2">
+        <h4 className="text-md font-semibold text-game-primary">Historique des manches</h4>
+        <div className="space-y-2 max-h-40 overflow-y-auto">
+          {Object.entries(roundsByNumber).map(([roundNumber, rounds]) => (
+            <div key={roundNumber} className="bg-white p-2 rounded-md shadow-sm">
+              <h5 className="text-sm font-medium text-gray-700 mb-1">
+                Manche {roundNumber}
+              </h5>
+              <div className="space-y-1">
+                {rounds.map((round) => (
+                  <div key={round.id} className="flex justify-between text-sm">
+                    <span className="text-gray-600">{round.player_name}</span>
+                    <span className="font-medium text-gray-700">{round.round_score} pts</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="flex flex-col gap-2">
         <Button 
           onClick={handleNewGame}
