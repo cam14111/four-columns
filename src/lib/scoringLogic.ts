@@ -15,21 +15,28 @@ export const shouldDoubleScore = (player: Player, lowestScore: number): boolean 
 };
 
 export const updatePlayerScores = (players: Player[]): Player[] => {
-  // D'abord, calculer les scores de base
+  // D'abord, calculer les scores de base pour la manche en cours
   const playersWithBaseScores = players.map(player => ({
     ...player,
     score: calculatePlayerScore(player.grid)
   }));
 
-  // Trouver le score le plus bas
+  // Trouver le score le plus bas de la manche
   const lowestScore = findLowestScore(playersWithBaseScores);
 
   // Mettre à jour les scores en appliquant la règle du doublage si nécessaire
-  return playersWithBaseScores.map(player => ({
-    ...player,
-    score: shouldDoubleScore(player, lowestScore) ? player.score * 2 : player.score,
-    totalScore: player.totalScore + (shouldDoubleScore(player, lowestScore) ? player.score * 2 : player.score)
-  }));
+  // et en ajoutant le score de la manche au total accumulé
+  return playersWithBaseScores.map(player => {
+    const currentRoundScore = shouldDoubleScore(player, lowestScore) 
+      ? player.score * 2 
+      : player.score;
+    
+    return {
+      ...player,
+      score: currentRoundScore,
+      totalScore: player.totalScore + currentRoundScore // On ajoute simplement le score de la manche au total
+    };
+  });
 };
 
 export const isGameOver = (players: Player[]): boolean => {
