@@ -1,8 +1,7 @@
 import { Card as CardType, GameState, Player } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { checkColumnMatch, calculateInitialCardsSum, determineFirstPlayer } from "@/lib/gameLogic";
-import { updatePlayerScores, isGameOver, determineWinner } from "@/lib/scoringLogic";
-import { supabase } from "@/integrations/supabase/client";
+import { handleRoundEnd } from "@/lib/roundEndHandler";
 
 interface CardClickHandlerProps {
   gameState: GameState;
@@ -11,62 +10,6 @@ interface CardClickHandlerProps {
 
 export const useCardClickHandler = ({ gameState, setGameState }: CardClickHandlerProps) => {
   const { toast } = useToast();
-
-  const saveRoundScores = async (players: Player[], roundNumber: number) => {
-    const roundScores = players.map(player => ({
-      player_name: player.name,
-      round_number: roundNumber,
-      round_score: player.score
-    }));
-
-    const { error } = await supabase
-      .from('round_history')
-      .insert(roundScores);
-
-    if (error) {
-      console.error('Error saving round scores:', error);
-    }
-  };
-
-  const checkRoundEnd = (currentPlayer: Player, players: Player[]) => {
-    if (currentPlayer.grid.every(card => card.state === "visible")) {
-      const updatedPlayers = updatePlayerScores(players);
-      
-      // Calculer le numéro de la manche actuelle
-      const roundNumber = Math.floor(updatedPlayers[0].totalScore / updatedPlayers[0].score);
-      
-      // Sauvegarder les scores de la manche
-      saveRoundScores(updatedPlayers, roundNumber);
-      
-      if (isGameOver(updatedPlayers)) {
-        const winners = determineWinner(updatedPlayers);
-        const winnerNames = winners.map(w => w.name).join(" et ");
-        
-        toast({
-          title: "Fin de la partie !",
-          description: `${winnerNames} ${winners.length > 1 ? 'remportent' : 'remporte'} la partie avec ${winners[0].totalScore} points !`
-        });
-        
-        return {
-          players: updatedPlayers,
-          gamePhase: "gameEnd" as const,
-          currentPlayerIndex: 0
-        };
-      } else {
-        toast({
-          title: "Fin de la manche !",
-          description: "Les scores ont été mis à jour. Une nouvelle manche va commencer."
-        });
-        
-        return {
-          players: updatedPlayers,
-          gamePhase: "roundEnd" as const,
-          currentPlayerIndex: 0
-        };
-      }
-    }
-    return null;
-  };
 
   const handleCardClick = (clickedCard: CardType) => {
     if (gameState.gamePhase === "selectInitialCards") {
@@ -165,9 +108,10 @@ export const useCardClickHandler = ({ gameState, setGameState }: CardClickHandle
           description: "Les cartes de la colonne ont été défaussées."
         });
 
-        const roundEndState = checkRoundEnd(
+        const roundEndState = handleRoundEnd(
           { ...currentPlayer, grid: filteredGrid },
-          newPlayers
+          newPlayers,
+          toast
         );
         
         if (roundEndState) {
@@ -195,9 +139,10 @@ export const useCardClickHandler = ({ gameState, setGameState }: CardClickHandle
         grid: newGrid
       };
 
-      const roundEndState = checkRoundEnd(
+      const roundEndState = handleRoundEnd(
         { ...currentPlayer, grid: newGrid },
-        newPlayers
+        newPlayers,
+        toast
       );
       
       if (roundEndState) {
@@ -251,9 +196,10 @@ export const useCardClickHandler = ({ gameState, setGameState }: CardClickHandle
           description: "Les cartes de la colonne ont été défaussées."
         });
 
-        const roundEndState = checkRoundEnd(
+        const roundEndState = handleRoundEnd(
           { ...currentPlayer, grid: filteredGrid },
-          newPlayers
+          newPlayers,
+          toast
         );
         
         if (roundEndState) {
@@ -279,9 +225,10 @@ export const useCardClickHandler = ({ gameState, setGameState }: CardClickHandle
         grid: newGrid
       };
 
-      const roundEndState = checkRoundEnd(
+      const roundEndState = handleRoundEnd(
         { ...currentPlayer, grid: newGrid },
-        newPlayers
+        newPlayers,
+        toast
       );
       
       if (roundEndState) {
