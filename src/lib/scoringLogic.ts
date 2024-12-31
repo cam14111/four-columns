@@ -25,7 +25,6 @@ export const updatePlayerScores = (players: Player[]): Player[] => {
   const lowestScore = findLowestScore(playersWithBaseScores);
 
   // Mettre à jour les scores en appliquant la règle du doublage si nécessaire
-  // et en ajoutant le score de la manche au total accumulé
   return playersWithBaseScores.map(player => {
     const currentRoundScore = shouldDoubleScore(player, lowestScore) 
       ? player.score * 2 
@@ -34,16 +33,20 @@ export const updatePlayerScores = (players: Player[]): Player[] => {
     return {
       ...player,
       score: currentRoundScore,
-      totalScore: player.totalScore + currentRoundScore // On ajoute simplement le score de la manche au total
+      // Le score total est maintenant simplement l'addition du score de la manche actuelle
+      // avec le score total précédent
+      totalScore: player.totalScore + currentRoundScore
     };
   });
 };
 
 export const isGameOver = (players: Player[]): boolean => {
+  // Le jeu se termine quand un joueur atteint ou dépasse 100 points
   return players.some(player => player.totalScore >= 100);
 };
 
 export const determineWinner = (players: Player[]): Player[] => {
+  // Le gagnant est celui qui a le score total le plus bas
   const lowestTotalScore = Math.min(...players.map(p => p.totalScore));
   return players.filter(p => p.totalScore === lowestTotalScore);
 };
