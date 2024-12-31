@@ -26,15 +26,18 @@ export const updatePlayerScores = (players: Player[]): Player[] => {
 
   // Mettre à jour les scores en appliquant la règle du doublage si nécessaire
   return playersWithBaseScores.map(player => {
+    // On calcule d'abord le score de la manche actuelle
+    const roundScore = calculatePlayerScore(player.grid);
+    
+    // On applique le doublage si nécessaire
     const currentRoundScore = shouldDoubleScore(player, lowestScore) 
-      ? player.score * 2 
-      : player.score;
+      ? roundScore * 2 
+      : roundScore;
     
     return {
       ...player,
       score: currentRoundScore,
-      // Le score total est maintenant simplement l'addition du score de la manche actuelle
-      // avec le score total précédent
+      // On ajoute le score de la manche au total précédent
       totalScore: player.totalScore + currentRoundScore
     };
   });
