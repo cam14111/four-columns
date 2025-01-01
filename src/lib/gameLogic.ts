@@ -1,4 +1,5 @@
 import { Card, CardValue, Player, GameState } from "./types";
+import { checkColumnMatch } from "./columnMatchLogic";
 
 export const createDeck = (): Card[] => {
   const deck: Card[] = [];
