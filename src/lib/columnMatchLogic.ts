@@ -29,15 +29,22 @@ export const handleColumnMatch = (grid: Card[], cardIndex: number) => {
   if (checkColumnMatch(grid, columnIndex)) {
     console.log(`Colonne ${columnIndex} correspond, préparation à la suppression`);
     
-    // Récupérer les cartes de la colonne
-    const columnCards = grid.filter((_, index) => index % 4 === columnIndex);
+    // Au lieu de filtrer la grille, nous allons créer une nouvelle grille
+    // où les cartes de la colonne correspondante sont marquées comme supprimées
+    const newGrid = grid.map((card, index) => {
+      if (index % 4 === columnIndex) {
+        // Marquer la carte comme supprimée en la rendant invisible
+        return { ...card, state: "hidden" as const };
+      }
+      return card;
+    });
     
-    // Retirer la colonne du jeu
-    const filteredGrid = grid.filter((_, index) => index % 4 !== columnIndex);
+    // Récupérer les cartes de la colonne pour la défausse
+    const columnCards = grid.filter((_, index) => index % 4 === columnIndex);
     
     return {
       columnCards,
-      filteredGrid,
+      filteredGrid: newGrid,
       hasMatch: true
     };
   }
