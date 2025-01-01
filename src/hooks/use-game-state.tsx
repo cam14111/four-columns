@@ -9,9 +9,9 @@ import {
   calculateRoundScores,
   determineFirstPlayer,
   calculateInitialCardsSum,
-  checkColumnMatch,
   makeAIMove
 } from "@/lib/gameLogic";
+import { checkColumnMatch } from "@/lib/columnMatchLogic";
 import { selectInitialCardsForAI } from "@/lib/aiLogic";
 
 export const useGameState = () => {

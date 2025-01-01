@@ -1,7 +1,7 @@
 import { Card as CardType, GameState } from "@/lib/types";
 import { handleColumnMatch } from "@/lib/columnMatchLogic";
 import { handleRoundEnd } from "@/lib/roundEndHandler";
-import { Toast } from "@/hooks/use-toast";
+import { Toast } from "@/types/toast";
 
 export const handleHiddenCardSelection = (
   clickedCard: CardType,

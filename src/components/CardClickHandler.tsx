@@ -2,6 +2,7 @@ import { Card as CardType, GameState } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { handleActionPhaseClick } from "./handlers/ActionPhaseHandler";
 import { handleHiddenCardSelection } from "./handlers/HiddenCardHandler";
+import { calculateInitialCardsSum, determineFirstPlayer } from "@/lib/gameLogic";
 
 interface CardClickHandlerProps {
   gameState: GameState;
