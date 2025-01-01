@@ -2,7 +2,7 @@ import { Card } from "@/lib/types";
 
 export const checkColumnMatch = (grid: Card[], columnIndex: number): boolean => {
   // Récupérer toutes les cartes de la colonne spécifiée
-  const column = grid.filter((_, index) => Math.floor(index / 3) === columnIndex);
+  const column = grid.filter((_, index) => index % 4 === columnIndex);
   
   // Une colonne doit avoir exactement 3 cartes pour être valide
   if (column.length !== 3) return false;
@@ -23,17 +23,17 @@ export const checkColumnMatch = (grid: Card[], columnIndex: number): boolean => 
 };
 
 export const handleColumnMatch = (grid: Card[], cardIndex: number) => {
-  const columnIndex = Math.floor(cardIndex / 3);
+  const columnIndex = cardIndex % 4;
   
   // Vérifier si la colonne est complète avec des cartes identiques
   if (checkColumnMatch(grid, columnIndex)) {
     console.log(`Colonne ${columnIndex} correspond, préparation à la suppression`);
     
     // Récupérer les cartes de la colonne
-    const columnCards = grid.filter((_, index) => Math.floor(index / 3) === columnIndex);
+    const columnCards = grid.filter((_, index) => index % 4 === columnIndex);
     
     // Retirer la colonne du jeu
-    const filteredGrid = grid.filter((_, index) => Math.floor(index / 3) !== columnIndex);
+    const filteredGrid = grid.filter((_, index) => index % 4 !== columnIndex);
     
     return {
       columnCards,
