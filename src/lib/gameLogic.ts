@@ -70,6 +70,7 @@ export const isRoundOver = (grid: Card[]): boolean => {
 };
 
 export const checkColumnMatch = (grid: Card[], columnIndex: number): boolean => {
+  // Récupérer toutes les cartes de la colonne spécifiée
   const column = grid.filter((_, index) => Math.floor(index / 3) === columnIndex);
   
   // Une colonne doit avoir exactement 3 cartes pour être valide
@@ -80,7 +81,14 @@ export const checkColumnMatch = (grid: Card[], columnIndex: number): boolean => 
   
   // Vérifier que toutes les cartes ont la même valeur
   const firstValue = column[0].value;
-  return column.every(card => card.value === firstValue);
+  const allSameValue = column.every(card => card.value === firstValue);
+  
+  // Pour le débogage
+  if (allSameValue) {
+    console.log(`Colonne ${columnIndex} correspond: toutes les cartes sont ${firstValue}`);
+  }
+  
+  return allSameValue;
 };
 
 export const calculateRoundScores = (players: Player[], firstFinishedPlayer: Player): Player[] => {
