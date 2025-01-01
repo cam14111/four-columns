@@ -86,13 +86,17 @@ export const useCardClickHandler = ({ gameState, setGameState }: CardClickHandle
       newGrid[cardIndex] = { ...prev.selectedCard!, state: "visible" as const };
       let newDiscardPile = [{ ...clickedCard, state: "visible" as const }, ...prev.discardPile];
       
+      // Vérifier si la colonne est complète avec des cartes identiques
       if (checkColumnMatch(newGrid, Math.floor(cardIndex / 3))) {
         const columnIndex = Math.floor(cardIndex / 3);
         const columnCards = newGrid.filter((_, index) => 
           Math.floor(index / 3) === columnIndex
         );
         
+        // Ajouter les cartes de la colonne à la défausse
         newDiscardPile = [...columnCards, ...newDiscardPile];
+        
+        // Retirer la colonne du jeu
         const filteredGrid = newGrid.filter((_, index) => 
           Math.floor(index / 3) !== columnIndex
         );

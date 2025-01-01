@@ -71,12 +71,16 @@ export const isRoundOver = (grid: Card[]): boolean => {
 
 export const checkColumnMatch = (grid: Card[], columnIndex: number): boolean => {
   const column = grid.filter((_, index) => Math.floor(index / 3) === columnIndex);
+  
+  // Une colonne doit avoir exactement 3 cartes pour être valide
   if (column.length !== 3) return false;
   
-  return column.every(card => 
-    card.state === "visible" && 
-    card.value === column[0].value
-  );
+  // Toutes les cartes doivent être visibles
+  if (!column.every(card => card.state === "visible")) return false;
+  
+  // Vérifier que toutes les cartes ont la même valeur
+  const firstValue = column[0].value;
+  return column.every(card => card.value === firstValue);
 };
 
 export const calculateRoundScores = (players: Player[], firstFinishedPlayer: Player): Player[] => {
