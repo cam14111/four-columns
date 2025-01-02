@@ -7,7 +7,7 @@ export const handleRoundEnd = (
   players: Player[],
   toast: any
 ) => {
-  if (currentPlayer.grid.every(card => card.state === "visible")) {
+  if (currentPlayer.grid.every(card => card === null || card.state === "visible")) {
     const updatedPlayers = updatePlayerScores(players);
     
     // Calculer le numéro de la manche actuelle
