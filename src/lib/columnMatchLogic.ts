@@ -29,11 +29,16 @@ export const handleColumnMatch = (grid: Card[], cardIndex: number) => {
   if (checkColumnMatch(grid, columnIndex)) {
     console.log(`Colonne ${columnIndex} correspond, préparation à la suppression`);
     
-    // Filtrer la grille pour retirer les cartes de la colonne correspondante
-    const filteredGrid = grid.filter((_, index) => index % 4 !== columnIndex);
-    
     // Récupérer les cartes de la colonne pour la défausse
     const columnCards = grid.filter((_, index) => index % 4 === columnIndex);
+    
+    // Créer une nouvelle grille en remplaçant les cartes de la colonne par null
+    const filteredGrid = grid.map((card, index) => {
+      if (index % 4 === columnIndex) {
+        return null;
+      }
+      return card;
+    }).filter((card): card is Card => card !== null); // Filtrer les null à la fin
     
     return {
       columnCards,
