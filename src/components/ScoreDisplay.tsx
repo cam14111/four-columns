@@ -61,8 +61,8 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
 
   const calculateVisibleCardsSum = (player: Player): number => {
     return player.grid
-      .filter(card => card.state === "visible")
-      .reduce((sum, card) => sum + card.value, 0);
+      .filter(card => card && card.state === "visible")
+      .reduce((sum, card) => sum + (card?.value || 0), 0);
   };
 
   return (

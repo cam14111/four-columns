@@ -13,7 +13,7 @@ export interface Player {
   name: string;
   score: number;
   totalScore: number;
-  grid: Card[];
+  grid: (Card | null)[];
   isAI: boolean;
   initialCardsSum?: number;
 }
