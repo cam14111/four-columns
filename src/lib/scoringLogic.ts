@@ -1,8 +1,8 @@
 import { Player, Card } from "./types";
 
-export const calculatePlayerScore = (grid: Card[]): number => {
+export const calculatePlayerScore = (grid: (Card | null)[]): number => {
   return grid
-    .filter(card => card.state === "visible")
+    .filter((card): card is Card => card !== null && card.state === "visible")
     .reduce((sum, card) => sum + card.value, 0);
 };
 
@@ -11,7 +11,7 @@ export const findLowestScore = (players: Player[]): number => {
 };
 
 export const shouldDoubleScore = (player: Player, lowestScore: number): boolean => {
-  return player.grid.every(card => card.state === "visible") && player.score > lowestScore;
+  return player.grid.every(card => card === null || card.state === "visible") && player.score > lowestScore;
 };
 
 export const updatePlayerScores = (players: Player[]): Player[] => {
