@@ -40,7 +40,7 @@ export const dealInitialCards = (deck: Card[]): { playerGrid: Card[], remainingD
 };
 
 export const calculateInitialCardsSum = (grid: Card[]): number => {
-  return grid.filter(card => card.state === "visible")
+  return grid.filter(card => card && card.state === "visible")
     .reduce((sum, card) => sum + card.value, 0);
 };
 
@@ -59,7 +59,7 @@ export const determineFirstPlayer = (players: Player[]): number => {
 };
 
 export const calculateScore = (grid: Card[]): number => {
-  return grid.reduce((sum, card) => sum + card.value, 0);
+  return grid.filter(card => card !== null).reduce((sum, card) => sum + card.value, 0);
 };
 
 export const isGameOver = (players: Player[]): boolean => {
@@ -67,7 +67,7 @@ export const isGameOver = (players: Player[]): boolean => {
 };
 
 export const isRoundOver = (grid: Card[]): boolean => {
-  return grid.every(card => card.state === "visible");
+  return grid.every(card => card === null || card.state === "visible");
 };
 
 export const calculateRoundScores = (players: Player[], firstFinishedPlayer: Player): Player[] => {
@@ -106,7 +106,7 @@ export const makeAIMove = (gameState: GameState): GameState => {
     // L'IA choisit les deux cartes avec les plus petites valeurs
     const hiddenCards = currentPlayer.grid
       .map((card, index) => ({ card, index }))
-      .filter(item => item.card.state === "hidden")
+      .filter(item => item.card && item.card.state === "hidden")
       .sort((a, b) => a.card.value - b.card.value);
 
     if (hiddenCards.length > 0) {
@@ -132,7 +132,7 @@ export const makeAIMove = (gameState: GameState): GameState => {
     const shouldDrawFromDiscard = 
       newState.discardPile.length > 0 && 
       newState.discardPile[0].value < Math.max(...currentPlayer.grid
-        .filter(card => card.state === "visible")
+        .filter(card => card && card.state === "visible")
         .map(card => card.value));
 
     if (shouldDrawFromDiscard) {
@@ -150,14 +150,14 @@ export const makeAIMove = (gameState: GameState): GameState => {
     }
   } else if (gameState.gamePhase === "action" && newState.selectedCard) {
     // Décision de l'IA : garder ou défausser la carte
-    const visibleCards = currentPlayer.grid.filter(card => card.state === "visible");
+    const visibleCards = currentPlayer.grid.filter(card => card && card.state === "visible");
     const highestVisibleCard = visibleCards.reduce((prev, curr) => 
       curr.value > prev.value ? curr : prev
     , visibleCards[0]);
 
     if (highestVisibleCard && newState.selectedCard.value < highestVisibleCard.value) {
       // Garder la carte et remplacer la plus haute carte visible
-      const index = currentPlayer.grid.findIndex(card => card.id === highestVisibleCard.id);
+      const index = currentPlayer.grid.findIndex(card => card && card.id === highestVisibleCard.id);
       newState.discardPile = [highestVisibleCard, ...newState.discardPile];
       const newGrid = [...currentPlayer.grid];
       newGrid[index] = { ...newState.selectedCard, state: "visible" };
@@ -176,7 +176,7 @@ export const makeAIMove = (gameState: GameState): GameState => {
       newState.discardPile = [newState.selectedCard, ...newState.discardPile];
       const hiddenCards = currentPlayer.grid
         .map((card, index) => ({ card, index }))
-        .filter(item => item.card.state === "hidden");
+        .filter(item => item.card && item.card.state === "hidden");
 
       if (hiddenCards.length > 0) {
         // Choisir une carte cachée au hasard
