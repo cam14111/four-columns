@@ -1,8 +1,8 @@
 import { Card } from "@/lib/types";
 
-export const checkColumnMatch = (grid: Card[], columnIndex: number): boolean => {
+export const checkColumnMatch = (grid: (Card | null)[], columnIndex: number): boolean => {
   // Récupérer toutes les cartes de la colonne spécifiée
-  const column = grid.filter((_, index) => index % 4 === columnIndex);
+  const column = grid.filter((card, index) => index % 4 === columnIndex && card !== null) as Card[];
   
   // Une colonne doit avoir exactement 3 cartes pour être valide
   if (column.length !== 3) return false;
@@ -22,7 +22,7 @@ export const checkColumnMatch = (grid: Card[], columnIndex: number): boolean => 
   return allSameValue;
 };
 
-export const handleColumnMatch = (grid: Card[], cardIndex: number) => {
+export const handleColumnMatch = (grid: (Card | null)[], cardIndex: number) => {
   const columnIndex = cardIndex % 4;
   
   // Vérifier si la colonne est complète avec des cartes identiques
@@ -30,7 +30,9 @@ export const handleColumnMatch = (grid: Card[], cardIndex: number) => {
     console.log(`Colonne ${columnIndex} correspond, préparation à la suppression`);
     
     // Récupérer les cartes de la colonne pour la défausse
-    const columnCards = grid.filter((_, index) => index % 4 === columnIndex);
+    const columnCards = grid.filter((card, index) => 
+      index % 4 === columnIndex && card !== null
+    ) as Card[];
     
     // Créer une nouvelle grille en remplaçant les cartes de la colonne par null
     const filteredGrid = grid.map((card, index) => {
@@ -38,7 +40,7 @@ export const handleColumnMatch = (grid: Card[], cardIndex: number) => {
         return null;
       }
       return card;
-    }).filter((card): card is Card => card !== null); // Filtrer les null à la fin
+    });
     
     return {
       columnCards,
