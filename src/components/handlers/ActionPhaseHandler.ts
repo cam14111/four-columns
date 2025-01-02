@@ -10,7 +10,9 @@ export const handleActionPhaseClick = (
   toast: (props: Toast) => void
 ) => {
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-  const cardIndex = currentPlayer.grid.findIndex(c => c.id === clickedCard.id);
+  const cardIndex = currentPlayer.grid.findIndex(c => c && c.id === clickedCard.id);
+  
+  if (cardIndex === -1) return; // Guard clause if card not found
   
   setGameState(prev => {
     const newGrid = [...prev.players[prev.currentPlayerIndex].grid];
