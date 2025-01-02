@@ -10,7 +10,12 @@ export const handleHiddenCardSelection = (
   toast: (props: Toast) => void
 ) => {
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-  const cardIndex = currentPlayer.grid.findIndex(c => c.id === clickedCard.id);
+  const cardIndex = currentPlayer.grid.findIndex(c => c && c.id === clickedCard.id);
+  
+  if (cardIndex === -1) {
+    console.error("Card not found in grid");
+    return;
+  }
   
   setGameState(prev => {
     const newGrid = [...prev.players[prev.currentPlayerIndex].grid];
