@@ -34,7 +34,6 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
     }
   });
 
-  // Grouper l'historique par numéro de manche
   const roundsByNumber = roundHistory?.reduce((acc, round) => {
     if (!acc[round.round_number]) {
       acc[round.round_number] = [];
@@ -65,57 +64,59 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
       .reduce((sum, card) => sum + (card?.value || 0), 0);
   };
 
+  const getRowBackgroundColor = (index: number): string => {
+    const colors = [
+      'bg-[#D3E4FD]', // Soft Blue for current round
+      'bg-[#FDE1D3]', // Soft Peach
+      'bg-[#F2FCE2]', // Soft Green
+      'bg-[#FEC6A1]', // Soft Orange
+      'bg-[#E5DEFF]', // Soft Purple
+    ];
+    return colors[index % colors.length];
+  };
+
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-game-primary">Scores</h3>
-      <div className="space-y-1">
-        {players.map((player) => (
-          <div
-            key={player.id}
-            className="flex flex-col gap-2 py-3 px-4 bg-white rounded-md shadow-sm"
-          >
-            <div className="flex justify-between items-center border-b pb-2">
+      {players.map((player) => (
+        <div key={player.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <div className="p-3 bg-[#F1F0FB] border-b">
+            <div className="flex justify-between items-center">
               <span className="font-medium text-gray-800">{player.name}</span>
-              <div className="flex flex-col items-end">
-                <span className="text-sm text-gray-500">Total des manches</span>
-                <span className="text-lg font-bold text-[#0EA5E9]">
+              <div className="bg-[#0EA5E9] text-white px-3 py-1 rounded">
+                <span className="font-bold">
                   {player.totalScore}
                 </span>
               </div>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Manche en cours</span>
-              <span className="text-md font-semibold text-gray-700">
-                {calculateVisibleCardsSum(player)}
-              </span>
-            </div>
           </div>
-        ))}
-      </div>
+          
+          {/* Current round */}
+          <div className={`flex justify-between items-center p-3 ${getRowBackgroundColor(0)}`}>
+            <span className="text-gray-700">Manche en cours</span>
+            <span className="font-semibold text-gray-800">
+              {calculateVisibleCardsSum(player)}
+            </span>
+          </div>
 
-      {/* Historique des manches */}
-      <div className="mt-4 space-y-2">
-        <h4 className="text-md font-semibold text-game-primary">Historique des manches</h4>
-        <div className="space-y-2 max-h-40 overflow-y-auto">
-          {Object.entries(roundsByNumber).map(([roundNumber, rounds]) => (
-            <div key={roundNumber} className="bg-white p-2 rounded-md shadow-sm">
-              <h5 className="text-sm font-medium text-gray-700 mb-1">
-                Manche {roundNumber}
-              </h5>
-              <div className="space-y-1">
-                {rounds.map((round) => (
-                  <div key={round.id} className="flex justify-between text-sm">
-                    <span className="text-gray-600">{round.player_name}</span>
-                    <span className="font-medium text-gray-700">{round.round_score} pts</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+          {/* Round history */}
+          {Object.entries(roundsByNumber)
+            .sort(([a], [b]) => Number(b) - Number(a))
+            .map(([roundNumber, rounds], index) => {
+              const roundScore = rounds.find(r => r.player_name === player.name)?.round_score || 0;
+              return (
+                <div
+                  key={roundNumber}
+                  className={`flex justify-between items-center p-3 ${getRowBackgroundColor(index + 1)}`}
+                >
+                  <span className="text-gray-700">Manche {roundNumber}</span>
+                  <span className="font-semibold text-gray-800">{roundScore}</span>
+                </div>
+              );
+            })}
         </div>
-      </div>
+      ))}
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 mt-4">
         <Button 
           onClick={handleNewGame}
           variant="default"
