@@ -7,6 +7,7 @@ import { createDeck, dealInitialCards } from "@/lib/gameLogic";
 import { useCardClickHandler } from "./CardClickHandler";
 import { selectInitialCardsForAI } from "@/lib/aiLogic";
 import { useToast } from "@/hooks/use-toast";
+import { GameActions } from "./GameActions";
 
 interface GameBoardProps {
   initialPlayerName: string;
@@ -32,7 +33,7 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
     const remainingDeck = deck2.slice(1);
 
     setDeck(remainingDeck);
-    setDiscardPile([firstDiscardCard]); // Initialiser la défausse avec la première carte face visible
+    setDiscardPile([firstDiscardCard]);
 
     setPlayers([
       {
@@ -127,6 +128,28 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
     }
   });
 
+  const { handleDrawFromDeck, handleDrawFromDiscard } = GameActions({ 
+    gameState, 
+    setGameState: (newState) => {
+      if (typeof newState === 'function') {
+        const updatedState = newState(gameState);
+        setPlayers(updatedState.players);
+        setCurrentPlayerIndex(updatedState.currentPlayerIndex);
+        setDeck(updatedState.deck);
+        setDiscardPile(updatedState.discardPile);
+        setGamePhase(updatedState.gamePhase);
+        setSelectedInitialCards(updatedState.selectedInitialCards);
+      } else {
+        setPlayers(newState.players);
+        setCurrentPlayerIndex(newState.currentPlayerIndex);
+        setDeck(newState.deck);
+        setDiscardPile(newState.discardPile);
+        setGamePhase(newState.gamePhase);
+        setSelectedInitialCards(newState.selectedInitialCards);
+      }
+    }
+  });
+
   const handleNewGame = () => {
     const newDeck = createDeck();
     const { playerGrid: humanGrid, remainingDeck: deck1 } = dealInitialCards(newDeck);
@@ -177,8 +200,8 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
           />
           <GameControlSection
             gameState={gameState}
-            onDrawFromDeck={() => {}}
-            onDrawFromDiscard={() => {}}
+            onDrawFromDeck={handleDrawFromDeck}
+            onDrawFromDiscard={handleDrawFromDiscard}
             onNewGame={handleNewGame}
             onContinueGame={() => {}}
           />
