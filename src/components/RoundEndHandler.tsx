@@ -86,13 +86,13 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
 
       // Vérifier si un joueur a atteint ou dépassé 100 points
       const playersOver100 = updatedPlayers.filter(player => 
-        player.totalScore + player.score >= 100
+        (player.totalScore + player.score) >= 100
       );
 
       if (playersOver100.length > 0) {
         // Le(s) joueur(s) qui n'ont pas atteint 100 points sont les gagnants
         const winners = updatedPlayers.filter(player => 
-          player.totalScore + player.score < 100
+          (player.totalScore + player.score) < 100
         );
 
         toast({
