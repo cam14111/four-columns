@@ -88,7 +88,7 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
 
   return (
     <div className="min-h-screen bg-game-background p-4">
-      <div className="max-w-4xl mx-auto space-y-8">
+      <div className="max-w-7xl mx-auto">
         <InitialPhase
           gamePhase={gamePhase}
           currentPlayer={currentPlayer}
@@ -96,21 +96,21 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
           playerName={currentPlayer.name}
           onPlayerNameSubmit={() => {}}
         />
-        <div className="grid gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr,400px] gap-8">
           <PlayerSection
             players={players}
             currentPlayerIndex={0}
             gamePhase={gamePhase}
             onCardClick={() => {}}
           />
+          <GameControlSection
+            gameState={gameState}
+            onDrawFromDeck={() => {}}
+            onDrawFromDiscard={() => {}}
+            onNewGame={handleNewGame}
+            onContinueGame={() => {}}
+          />
         </div>
-        <GameControlSection
-          gameState={gameState}
-          onDrawFromDeck={() => {}}
-          onDrawFromDiscard={() => {}}
-          onNewGame={handleNewGame}
-          onContinueGame={() => {}}
-        />
       </div>
     </div>
   );
