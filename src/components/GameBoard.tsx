@@ -111,46 +111,54 @@ export const GameBoard = () => {
       roundWinner: winners[0]
     }));
 
-    // Sauvegarder les scores dans la base de données
-    const roundNumber = (await supabase
-      .from('round_history')
-      .select('round_number')
-      .order('round_number', { ascending: false })
-      .limit(1)
-      .single()
-    ).data?.round_number || 0;
+    try {
+      // Récupérer le dernier numéro de manche
+      const { data: lastRound } = await supabase
+        .from('round_history')
+        .select('round_number')
+        .order('round_number', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    const currentRoundNumber = roundNumber + 1;
+      const currentRoundNumber = (lastRound?.round_number || 0) + 1;
 
-    // Sauvegarder les scores de la manche pour chaque joueur
-    for (const player of updatedPlayers) {
-      try {
-        await supabase.from('round_history').insert({
-          player_name: player.name,
-          round_number: currentRoundNumber,
-          round_score: player.score
-        });
+      // Sauvegarder les scores de la manche pour chaque joueur
+      for (const player of updatedPlayers) {
+        try {
+          await supabase.from('round_history').insert({
+            player_name: player.name,
+            round_number: currentRoundNumber,
+            round_score: player.score
+          });
 
-        await saveGameScore(
-          player.name,
-          player.score,
-          player.totalScore + player.score
-        );
-      } catch (error) {
-        console.error('Error saving scores:', error);
-        toast({
-          title: "Erreur",
-          description: "Impossible de sauvegarder les scores",
-          variant: "destructive",
-        });
-        return;
+          await saveGameScore(
+            player.name,
+            player.score,
+            player.totalScore + player.score
+          );
+        } catch (error) {
+          console.error('Error saving scores:', error);
+          toast({
+            title: "Erreur",
+            description: "Impossible de sauvegarder les scores",
+            variant: "destructive",
+          });
+          return;
+        }
       }
-    }
 
-    toast({
-      title: "Partie terminée !",
-      description: `${winners.map(w => w.name).join(" et ")} ${winners.length > 1 ? 'remportent' : 'remporte'} la manche avec ${minScore} points !`,
-    });
+      toast({
+        title: "Partie terminée !",
+        description: `${winners.map(w => w.name).join(" et ")} ${winners.length > 1 ? 'remportent' : 'remporte'} la manche avec ${minScore} points !`,
+      });
+    } catch (error) {
+      console.error('Error handling game end:', error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de la fin de partie",
+        variant: "destructive",
+      });
+    }
   };
 
   const checkAllCardsRevealed = (playerIndex: number) => {
