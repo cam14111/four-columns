@@ -1,3 +1,4 @@
+import React, { useEffect } from "react";
 import { useGameState } from "@/hooks/use-game-state";
 import { GameActions } from "@/components/GameActions";
 import { useCardClickHandler } from "@/components/CardClickHandler";
@@ -84,7 +85,6 @@ export const GameBoard = () => {
     }));
   };
 
-  // Ajout de la sauvegarde des scores à la fin de la partie
   const handleGameEnd = async () => {
     const humanPlayer = gameState.players[0];
     try {
@@ -106,14 +106,12 @@ export const GameBoard = () => {
     }
   };
 
-  // Vérifier si toutes les cartes d'un joueur sont retournées
   const checkAllCardsRevealed = (playerIndex: number) => {
     const player = gameState.players[playerIndex];
     return player.grid.every(card => card === null || card.state === "visible");
   };
 
-  // Révéler toutes les cartes quand un joueur a fini
-  React.useEffect(() => {
+  useEffect(() => {
     const currentPlayerAllRevealed = checkAllCardsRevealed(gameState.currentPlayerIndex);
     
     if (currentPlayerAllRevealed && gameState.gamePhase !== "roundEnd" && gameState.gamePhase !== "gameEnd") {
@@ -125,12 +123,10 @@ export const GameBoard = () => {
     }
   }, [gameState.players, gameState.currentPlayerIndex, gameState.gamePhase]);
 
-  // Appel de handleGameEnd quand la partie se termine
   if (gameState.gamePhase === "gameEnd" && gameState.players[0].name !== "Joueur") {
     handleGameEnd();
   }
 
-  // Afficher le formulaire de nom si le nom par défaut n'a pas été changé
   if (gameState.players[0].name === "Joueur") {
     return <PlayerNameForm onSubmit={handlePlayerNameSubmit} />;
   }
