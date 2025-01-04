@@ -8,6 +8,7 @@ import { saveGameScore } from "@/lib/scoreService";
 import { PlayerSection } from "./game/PlayerSection";
 import { GameControlSection } from "./game/GameControlSection";
 import { InitialPhase } from "./game/InitialPhase";
+import { createDeck, dealInitialCards } from "@/lib/gameLogic";
 
 export const GameBoard = () => {
   const { gameState, setGameState } = useGameState();

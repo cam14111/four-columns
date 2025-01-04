@@ -1,13 +1,12 @@
 import React from 'react';
-import { Player } from "@/lib/types";
+import { Player, Card } from "@/lib/types";
 import { PlayerGrid } from "../PlayerGrid";
-import { CardType } from "@/lib/types";
 
 interface PlayerSectionProps {
   players: Player[];
   currentPlayerIndex: number;
   gamePhase: string;
-  onCardClick: (card: CardType) => void;
+  onCardClick: (card: Card) => void;
 }
 
 export const PlayerSection = ({ 
