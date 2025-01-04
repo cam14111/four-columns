@@ -3,7 +3,7 @@ import { Player, GamePhase, GameState } from "@/lib/types";
 import { PlayerSection } from "./game/PlayerSection";
 import { GameControlSection } from "./game/GameControlSection";
 import { InitialPhase } from "./game/InitialPhase";
-import { createDeck, dealInitialCards } from "@/lib/gameLogic";
+import { createDeck, dealInitialCards, determineFirstPlayer } from "@/lib/gameLogic";
 import { useCardClickHandler } from "./CardClickHandler";
 import { selectInitialCardsForAI } from "@/lib/aiLogic";
 import { useToast } from "@/hooks/use-toast";
@@ -77,16 +77,22 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
           
           if (allPlayersSelected) {
             // Déterminer le premier joueur en fonction de la plus grande somme
-            const firstPlayerIndex = newPlayers[0].initialCardsSum > newPlayers[1].initialCardsSum ? 0 : 1;
+            const firstPlayerIndex = determineFirstPlayer(newPlayers);
             setCurrentPlayerIndex(firstPlayerIndex);
             setGamePhase("draw");
             
+            // Afficher un message pour indiquer qui commence
+            const startingPlayer = newPlayers[firstPlayerIndex];
             toast({
               title: "Premier joueur déterminé !",
-              description: `${newPlayers[firstPlayerIndex].name} commence avec la plus grande somme (${newPlayers[firstPlayerIndex].initialCardsSum}).`
+              description: `${startingPlayer.name} commence avec la plus grande somme (${startingPlayer.initialCardsSum}).`
             });
+
+            return newPlayers;
           }
           
+          // Si tous les joueurs n'ont pas encore sélectionné, passer au joueur suivant
+          setCurrentPlayerIndex((prevIndex) => (prevIndex + 1) % newPlayers.length);
           return newPlayers;
         });
         
@@ -186,9 +192,16 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
       <div className="max-w-7xl mx-auto">
         <InitialPhase
           gamePhase={gamePhase}
-          currentPlayer={currentPlayer}
+          currentPlayer={players[0] || {
+            id: "1",
+            name: initialPlayerName,
+            isAI: false,
+            score: 0,
+            totalScore: 0,
+            grid: Array(12).fill(null)
+          }}
           selectedInitialCards={selectedInitialCards}
-          playerName={currentPlayer.name}
+          playerName={initialPlayerName}
           onPlayerNameSubmit={() => {}}
         />
         <div className="grid grid-cols-1 md:grid-cols-[1fr,400px] gap-8">
@@ -199,7 +212,16 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
             onCardClick={handleCardClick}
           />
           <GameControlSection
-            gameState={gameState}
+            gameState={{
+              players,
+              currentPlayerIndex,
+              deck,
+              discardPile,
+              gamePhase,
+              selectedCard: null,
+              roundWinner: null,
+              selectedInitialCards
+            }}
             onDrawFromDeck={handleDrawFromDeck}
             onDrawFromDiscard={handleDrawFromDiscard}
             onNewGame={handleNewGame}
