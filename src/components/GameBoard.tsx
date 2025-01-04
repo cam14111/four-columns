@@ -13,6 +13,7 @@ import { saveGameScore } from "@/lib/scoreService";
 import { useToast } from "@/hooks/use-toast";
 import { createDeck, dealInitialCards } from "@/lib/gameLogic";
 import { supabase } from "@/integrations/supabase/client";
+import { Player } from "@/lib/types";
 
 export const GameBoard = () => {
   const { gameState, setGameState } = useGameState();
