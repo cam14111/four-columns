@@ -1,95 +1,65 @@
-import { Card as CardType, GameState } from "@/lib/types";
-import { handleColumnMatch } from "@/lib/columnMatchLogic";
-import { handleRoundEnd } from "@/lib/roundEndHandler";
-import { Toast } from "@/types/toast";
+import { Card, GameState } from "@/lib/types";
+import { Toast } from "@/hooks/use-toast";
+import { checkColumnMatch } from "@/lib/columnMatchLogic";
 
 export const handleActionPhaseClick = (
-  clickedCard: CardType,
+  clickedCard: Card,
   gameState: GameState,
   setGameState: React.Dispatch<React.SetStateAction<GameState>>,
-  toast: (props: Toast) => void
+  toast: Toast
 ) => {
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-  const cardIndex = currentPlayer.grid.findIndex(c => c && c.id === clickedCard.id);
   
-  if (cardIndex === -1) return; // Guard clause if card not found
-  
-  setGameState(prev => {
-    const newGrid = [...prev.players[prev.currentPlayerIndex].grid];
-    newGrid[cardIndex] = { ...prev.selectedCard!, state: "visible" as const };
-    let newDiscardPile = [{ ...clickedCard, state: "visible" as const }, ...prev.discardPile];
-    
-    // Vérifier et gérer les colonnes correspondantes
-    const { columnCards, filteredGrid, hasMatch } = handleColumnMatch(newGrid, cardIndex);
-    
-    if (hasMatch) {
-      console.log("Colonne correspondante trouvée, mise à jour de la grille et de la défausse");
-      newDiscardPile = [...columnCards, ...newDiscardPile];
-      
-      const newPlayers = [...prev.players];
-      newPlayers[prev.currentPlayerIndex] = {
-        ...currentPlayer,
-        grid: filteredGrid
-      };
-      
-      toast({
-        title: "Colonne complète !",
-        description: "Les cartes de la colonne ont été défaussées."
-      });
+  // Si nous n'avons pas de carte sélectionnée ou si elle n'est pas en mode remplacement, on ne fait rien
+  if (!gameState.selectedCard || gameState.selectedCard.state !== "replacing") {
+    return;
+  }
 
-      const roundEndState = handleRoundEnd(
-        { ...currentPlayer, grid: filteredGrid },
-        newPlayers,
-        toast
-      );
-      
-      if (roundEndState) {
-        return {
-          ...prev,
-          ...roundEndState,
-          discardPile: newDiscardPile,
-          selectedCard: null
-        };
+  // Trouver l'index de la carte cliquée dans la grille
+  const cardIndex = currentPlayer.grid.findIndex(c => c.id === clickedCard.id);
+  if (cardIndex === -1) return;
+
+  // Créer une nouvelle grille avec la carte remplacée
+  const newGrid = [...currentPlayer.grid];
+  const replacedCard = newGrid[cardIndex];
+  newGrid[cardIndex] = { ...gameState.selectedCard, state: "visible" as const };
+
+  // Vérifier si nous avons une colonne complète
+  const columnIndex = Math.floor(cardIndex / 3);
+  const hasColumnMatch = checkColumnMatch(newGrid, columnIndex);
+
+  if (hasColumnMatch) {
+    // Si nous avons une colonne complète, cacher toutes les cartes de la colonne
+    for (let i = columnIndex * 3; i < (columnIndex + 1) * 3; i++) {
+      if (newGrid[i]) {
+        newGrid[i] = { ...newGrid[i], state: "hidden" as const };
       }
-      
-      return {
-        ...prev,
-        players: newPlayers,
-        discardPile: newDiscardPile,
-        selectedCard: null,
-        gamePhase: "draw",
-        currentPlayerIndex: (prev.currentPlayerIndex + 1) % prev.players.length
-      };
     }
     
-    const newPlayers = [...prev.players];
-    newPlayers[prev.currentPlayerIndex] = {
-      ...currentPlayer,
-      grid: newGrid
-    };
+    toast({
+      title: "Colonne complétée !",
+      description: "Les cartes de la colonne ont été retournées"
+    });
+  }
 
-    const roundEndState = handleRoundEnd(
-      { ...currentPlayer, grid: newGrid },
-      newPlayers,
-      toast
-    );
-    
-    if (roundEndState) {
-      return {
-        ...prev,
-        ...roundEndState,
-        discardPile: newDiscardPile,
-        selectedCard: null
-      };
-    }
-    
-    return {
-      ...prev,
-      players: newPlayers,
-      discardPile: newDiscardPile,
-      selectedCard: null,
-      gamePhase: "draw",
-      currentPlayerIndex: (prev.currentPlayerIndex + 1) % prev.players.length
-    };
+  // Mettre à jour l'état du jeu
+  const newPlayers = [...gameState.players];
+  newPlayers[gameState.currentPlayerIndex] = {
+    ...currentPlayer,
+    grid: newGrid
+  };
+
+  setGameState(prev => ({
+    ...prev,
+    players: newPlayers,
+    selectedCard: null,
+    discardPile: replacedCard ? [replacedCard, ...prev.discardPile] : prev.discardPile,
+    currentPlayerIndex: (prev.currentPlayerIndex + 1) % prev.players.length,
+    gamePhase: "draw"
+  }));
+
+  toast({
+    title: "Tour terminé",
+    description: `C'est au tour de ${newPlayers[(gameState.currentPlayerIndex + 1) % newPlayers.length].name}`
   });
 };
