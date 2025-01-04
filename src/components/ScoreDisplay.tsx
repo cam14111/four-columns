@@ -73,15 +73,20 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
     }
   };
 
+  const isGameOver = () => {
+    return players.some(player => {
+      const totalScore = calculateTotalScore(player.name);
+      return totalScore >= 100;
+    });
+  };
+
   const handleContinueGame = () => {
-    // Vérifier si un joueur a atteint ou dépassé 100 points
     const playersOver100 = players.filter(player => {
       const totalScore = calculateTotalScore(player.name);
       return totalScore >= 100;
     });
 
     if (playersOver100.length > 0) {
-      // Trouver les gagnants (ceux qui n'ont pas atteint 100 points)
       const winners = players.filter(player => {
         const totalScore = calculateTotalScore(player.name);
         return totalScore < 100;
@@ -121,12 +126,10 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
   const calculateTotalScore = (playerName: string): number => {
     if (!roundHistory) return 0;
     
-    // Get all completed rounds for this player (excluding current round)
     const completedRounds = roundHistory
       .filter(round => round.player_name === playerName)
       .sort((a, b) => a.round_number - b.round_number);
     
-    // Sum up all scores from completed rounds
     return completedRounds.reduce((total, round) => total + round.round_score, 0);
   };
 
@@ -188,6 +191,7 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
           onClick={handleContinueGame}
           variant="secondary"
           className="w-full"
+          disabled={isGameOver()}
         >
           Continuer la partie
         </Button>
