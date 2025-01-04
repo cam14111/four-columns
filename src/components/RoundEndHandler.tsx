@@ -43,17 +43,28 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
       // Sauvegarder les scores de la manche pour chaque joueur
       for (const player of updatedPlayers) {
         try {
-          await supabase.from('round_history').insert({
-            player_name: player.name,
-            round_number: currentRoundNumber,
-            round_score: player.score
-          });
+          // Vérifier si un score existe déjà pour ce joueur dans cette manche
+          const { data: existingScore } = await supabase
+            .from('round_history')
+            .select('id')
+            .eq('player_name', player.name)
+            .eq('round_number', currentRoundNumber)
+            .maybeSingle();
 
-          await saveGameScore(
-            player.name,
-            player.score,
-            player.totalScore + player.score
-          );
+          // Ne sauvegarder que si le score n'existe pas déjà
+          if (!existingScore) {
+            await supabase.from('round_history').insert({
+              player_name: player.name,
+              round_number: currentRoundNumber,
+              round_score: player.score
+            });
+
+            await saveGameScore(
+              player.name,
+              player.score,
+              player.totalScore + player.score
+            );
+          }
         } catch (error) {
           console.error('Error saving scores:', error);
           toast({
