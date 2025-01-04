@@ -25,10 +25,14 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
     console.log("Initializing game with player:", initialPlayerName);
     const newDeck = createDeck();
     const { playerGrid: humanGrid, remainingDeck: deck1 } = dealInitialCards(newDeck);
-    const { playerGrid: aiGrid, remainingDeck: finalDeck } = dealInitialCards(deck1);
+    const { playerGrid: aiGrid, remainingDeck: deck2 } = dealInitialCards(deck1);
 
-    setDeck(finalDeck);
-    setDiscardPile([]);
+    // Prendre la première carte du deck pour la défausse et la retourner face visible
+    const firstDiscardCard = { ...deck2[0], state: "visible" as const };
+    const remainingDeck = deck2.slice(1);
+
+    setDeck(remainingDeck);
+    setDiscardPile([firstDiscardCard]); // Initialiser la défausse avec la première carte face visible
 
     setPlayers([
       {
