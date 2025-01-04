@@ -21,7 +21,7 @@ interface RoundHistory {
 export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDisplayProps) => {
   const { toast } = useToast();
 
-  const { data: roundHistory } = useQuery({
+  const { data: roundHistory, refetch } = useQuery({
     queryKey: ['roundHistory'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -42,12 +42,35 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
     return acc;
   }, {} as Record<number, RoundHistory[]>) || {};
 
-  const handleNewGame = () => {
-    onNewGame();
-    toast({
-      title: "Nouvelle partie",
-      description: "Les scores ont été remis à zéro"
-    });
+  const handleNewGame = async () => {
+    try {
+      // Delete all round history records for the current players
+      const playerNames = players.map(p => p.name);
+      const { error } = await supabase
+        .from('round_history')
+        .delete()
+        .in('player_name', playerNames);
+
+      if (error) throw error;
+
+      // Refresh the round history data
+      await refetch();
+      
+      // Call the onNewGame prop to reset the game state
+      onNewGame();
+      
+      toast({
+        title: "Nouvelle partie",
+        description: "Les scores ont été remis à zéro et l'historique a été effacé"
+      });
+    } catch (error) {
+      console.error('Error clearing game history:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'effacer l'historique des scores",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleContinueGame = () => {
