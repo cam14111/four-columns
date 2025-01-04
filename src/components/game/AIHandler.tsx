@@ -2,6 +2,7 @@ import { GameState, Player } from "@/lib/types";
 import { selectInitialCardsForAI } from "@/lib/aiLogic";
 import { determineFirstPlayer } from "@/lib/gameLogic";
 import { useToast } from "@/hooks/use-toast";
+import { useEffect } from "react";
 
 interface AIHandlerProps {
   gameState: GameState;
@@ -14,7 +15,9 @@ export const useAIHandler = ({ gameState, setGameState }: AIHandlerProps) => {
   const handleAITurn = () => {
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     
-    if (currentPlayer?.isAI && gameState.gamePhase === "selectInitialCards") {
+    if (!currentPlayer?.isAI) return;
+
+    if (gameState.gamePhase === "selectInitialCards") {
       setTimeout(() => {
         const { newGrid, initialCardsSum } = selectInitialCardsForAI(currentPlayer);
         
@@ -55,8 +58,42 @@ export const useAIHandler = ({ gameState, setGameState }: AIHandlerProps) => {
           };
         });
       }, 1000);
+    } else if (gameState.gamePhase === "draw") {
+      // L'IA joue son tour pendant la phase de pioche
+      setTimeout(() => {
+        // Décision de piocher depuis la défausse ou le deck
+        const shouldDrawFromDiscard = 
+          gameState.discardPile.length > 0 && 
+          Math.random() > 0.5; // Décision aléatoire pour l'exemple
+
+        if (shouldDrawFromDiscard && gameState.discardPile.length > 0) {
+          const drawnCard = gameState.discardPile[0];
+          setGameState(prev => ({
+            ...prev,
+            discardPile: prev.discardPile.slice(1),
+            selectedCard: drawnCard,
+            gamePhase: "action"
+          }));
+        } else {
+          const drawnCard = gameState.deck[0];
+          setGameState(prev => ({
+            ...prev,
+            deck: prev.deck.slice(1),
+            selectedCard: drawnCard,
+            gamePhase: "action"
+          }));
+        }
+      }, 1000);
     }
   };
+
+  // Utiliser useEffect pour déclencher le tour de l'IA
+  useEffect(() => {
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    if (currentPlayer?.isAI) {
+      handleAITurn();
+    }
+  }, [gameState.currentPlayerIndex, gameState.gamePhase]);
 
   return { handleAITurn };
 };
