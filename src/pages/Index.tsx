@@ -6,6 +6,7 @@ const Index = () => {
   const [authorizedPlayer, setAuthorizedPlayer] = useState<string | null>(null);
 
   const handlePlayerAuthorized = (playerName: string) => {
+    console.log("Player authorized:", playerName);
     setAuthorizedPlayer(playerName);
   };
 

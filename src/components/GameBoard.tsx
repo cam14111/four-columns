@@ -17,6 +17,7 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
   const [discardPile, setDiscardPile] = useState<any[]>([]);
 
   useEffect(() => {
+    console.log("Initializing game with player:", initialPlayerName);
     const newDeck = createDeck();
     setDeck(newDeck);
 
@@ -75,6 +76,8 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
     roundWinner: null,
     selectedInitialCards
   };
+
+  console.log("Current game state:", gameState);
 
   return (
     <div className="min-h-screen bg-game-background p-4">
