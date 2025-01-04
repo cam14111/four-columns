@@ -75,6 +75,13 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
     return colors[index % colors.length];
   };
 
+  const calculateTotalScore = (playerName: string): number => {
+    if (!roundHistory) return 0;
+    return roundHistory
+      .filter(round => round.player_name === playerName)
+      .reduce((total, round) => total + round.round_score, 0);
+  };
+
   return (
     <div className="space-y-4">
       {players.map((player) => (
@@ -84,7 +91,7 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
               <span className="font-medium text-gray-800">{player.name}</span>
               <div className="bg-[#0EA5E9] text-white px-3 py-1 rounded">
                 <span className="font-bold">
-                  {player.totalScore}
+                  {calculateTotalScore(player.name)}
                 </span>
               </div>
             </div>
@@ -120,7 +127,7 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
         <Button 
           onClick={handleNewGame}
           variant="default"
-          className="w-full"
+          className="w-full bg-[#0F172A] hover:bg-[#1E293B]"
         >
           Nouvelle partie
         </Button>
