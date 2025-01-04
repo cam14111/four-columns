@@ -8,7 +8,11 @@ interface GameStateInitializerProps {
 }
 
 export const useGameStateInitializer = ({ initialPlayerName, onStateInitialized }: GameStateInitializerProps) => {
+  const [isInitialized, setIsInitialized] = useState(false);
+
   useEffect(() => {
+    if (isInitialized) return;
+
     console.log("Initializing game with player:", initialPlayerName);
     const newDeck = createDeck();
     const { playerGrid: humanGrid, remainingDeck: deck1 } = dealInitialCards(newDeck);
@@ -48,5 +52,6 @@ export const useGameStateInitializer = ({ initialPlayerName, onStateInitialized 
     };
 
     onStateInitialized(initialState);
-  }, [initialPlayerName, onStateInitialized]);
+    setIsInitialized(true);
+  }, [initialPlayerName, onStateInitialized, isInitialized]);
 };
