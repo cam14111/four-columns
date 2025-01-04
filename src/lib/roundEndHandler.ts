@@ -10,14 +10,21 @@ export const handleRoundEnd = (
   if (currentPlayer.grid.every(card => card === null || card.state === "visible")) {
     const updatedPlayers = updatePlayerScores(players);
     
+    // Mettre à jour l'historique des scores pour chaque joueur
+    const playersWithHistory = updatedPlayers.map(player => ({
+      ...player,
+      roundHistory: [...(player.roundHistory || []), player.score],
+      totalScore: (player.roundHistory || []).reduce((sum, score) => sum + score, 0) + player.score
+    }));
+    
     // Calculer le numéro de la manche actuelle
-    const roundNumber = Math.floor(updatedPlayers[0].totalScore / updatedPlayers[0].score);
+    const roundNumber = playersWithHistory[0].roundHistory.length;
     
     // Sauvegarder les scores de la manche
-    saveRoundScores(updatedPlayers, roundNumber);
+    saveRoundScores(playersWithHistory, roundNumber);
     
-    if (isGameOver(updatedPlayers)) {
-      const winners = determineWinner(updatedPlayers);
+    if (isGameOver(playersWithHistory)) {
+      const winners = determineWinner(playersWithHistory);
       const winnerNames = winners.map(w => w.name).join(" et ");
       
       toast({
@@ -26,7 +33,7 @@ export const handleRoundEnd = (
       });
       
       return {
-        players: updatedPlayers,
+        players: playersWithHistory,
         gamePhase: "gameEnd" as const,
         currentPlayerIndex: 0
       };
@@ -37,7 +44,7 @@ export const handleRoundEnd = (
       });
       
       return {
-        players: updatedPlayers,
+        players: playersWithHistory,
         gamePhase: "roundEnd" as const,
         currentPlayerIndex: 0
       };

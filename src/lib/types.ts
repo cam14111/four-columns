@@ -16,6 +16,7 @@ export interface Player {
   grid: (Card | null)[];
   isAI: boolean;
   initialCardsSum?: number;
+  roundHistory: number[];
 }
 
 export type GamePhase = 

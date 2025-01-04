@@ -91,7 +91,7 @@ export const GameBoard = () => {
       await saveGameScore(
         humanPlayer.name,
         humanPlayer.score,
-        humanPlayer.totalScore
+        calculateTotalScore(humanPlayer.name)
       );
       toast({
         title: "Score sauvegardé",
@@ -111,21 +111,30 @@ export const GameBoard = () => {
     return player.grid.every(card => card === null || card.state === "visible");
   };
 
+  const calculateTotalScore = (playerName: string): number => {
+    const roundHistory = gameState.players.find(p => p.name === playerName)?.roundHistory || [];
+    return roundHistory.reduce((total, score) => total + score, 0);
+  };
+
   useEffect(() => {
     const currentPlayerAllRevealed = checkAllCardsRevealed(gameState.currentPlayerIndex);
     
     if (currentPlayerAllRevealed && gameState.gamePhase !== "roundEnd" && gameState.gamePhase !== "gameEnd") {
       // Révéler toutes les cartes des deux joueurs
-      setGameState(prev => ({
-        ...prev,
-        players: prev.players.map(player => ({
+      setGameState(prev => {
+        const updatedPlayers = prev.players.map(player => ({
           ...player,
           grid: player.grid.map(card => 
             card ? { ...card, state: "visible" as const } : null
           )
-        })),
-        gamePhase: "roundEnd"
-      }));
+        }));
+        
+        return {
+          ...prev,
+          players: updatedPlayers,
+          gamePhase: "roundEnd"
+        };
+      });
     }
   }, [gameState.players, gameState.currentPlayerIndex, gameState.gamePhase]);
 
