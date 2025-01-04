@@ -58,7 +58,7 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
 
   const currentPlayer = players[0] || {
     id: "1",
-    name: "Joueur",
+    name: initialPlayerName,
     isAI: false,
     score: 0,
     totalScore: 0,
@@ -105,3 +105,5 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
     </div>
   );
 };
+
+export default GameBoard;
