@@ -49,13 +49,13 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
       await supabase
         .from('round_history')
         .delete()
-        .neq('id', '');  // Cette condition est nécessaire car on ne peut pas DELETE sans WHERE
+        .neq('id', null);  // Sélectionne tous les enregistrements car id ne peut pas être null
 
       // Supprimer tous les scores du jeu
       await supabase
         .from('game_scores')
         .delete()
-        .neq('id', '');  // Cette condition est nécessaire car on ne peut pas DELETE sans WHERE
+        .neq('id', null);  // Sélectionne tous les enregistrements car id ne peut pas être null
 
       // Invalider les queries pour forcer un rafraîchissement
       queryClient.invalidateQueries({ queryKey: ['roundHistory'] });
