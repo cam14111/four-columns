@@ -10,7 +10,7 @@ import { InitialCardsSelection } from "./InitialCardsSelection";
 import { PlayerNameForm } from "./PlayerNameForm";
 import { saveGameScore } from "@/lib/scoreService";
 import { useToast } from "@/hooks/use-toast";
-import { createDeck, dealInitialCards } from "@/lib/gameLogic";
+import { createDeck, dealInitialCards, revealAllCards } from "@/lib/gameLogic";
 
 export const GameBoard = () => {
   const { gameState, setGameState } = useGameState();
@@ -106,6 +106,25 @@ export const GameBoard = () => {
     }
   };
 
+  // Vérifier si toutes les cartes d'un joueur sont retournées
+  const checkAllCardsRevealed = (playerIndex: number) => {
+    const player = gameState.players[playerIndex];
+    return player.grid.every(card => card === null || card.state === "visible");
+  };
+
+  // Révéler toutes les cartes quand un joueur a fini
+  React.useEffect(() => {
+    const currentPlayerAllRevealed = checkAllCardsRevealed(gameState.currentPlayerIndex);
+    
+    if (currentPlayerAllRevealed && gameState.gamePhase !== "roundEnd" && gameState.gamePhase !== "gameEnd") {
+      setGameState(prev => ({
+        ...prev,
+        players: revealAllCards(prev.players),
+        gamePhase: "roundEnd"
+      }));
+    }
+  }, [gameState.players, gameState.currentPlayerIndex, gameState.gamePhase]);
+
   // Appel de handleGameEnd quand la partie se termine
   if (gameState.gamePhase === "gameEnd" && gameState.players[0].name !== "Joueur") {
     handleGameEnd();
@@ -136,10 +155,11 @@ export const GameBoard = () => {
                 player={player}
                 onCardClick={handleCardClick}
                 disabled={
-                  index !== gameState.currentPlayerIndex || 
+                  (index !== gameState.currentPlayerIndex || 
                   player.isAI ||
                   (gameState.gamePhase === "action" && !gameState.selectedCard) ||
-                  ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
+                  ["roundEnd", "gameEnd"].includes(gameState.gamePhase)) &&
+                  gameState.gamePhase !== "selectInitialCards"
                 }
               />
             ))}

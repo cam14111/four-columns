@@ -195,3 +195,12 @@ export const makeAIMove = (gameState: GameState): GameState => {
 
   return newState;
 };
+
+export const revealAllCards = (players: Player[]): Player[] => {
+  return players.map(player => ({
+    ...player,
+    grid: player.grid.map(card => 
+      card ? { ...card, state: "visible" as const } : null
+    )
+  }));
+};
