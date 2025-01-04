@@ -25,7 +25,7 @@ export const PlayerSection = ({
           disabled={
             (index !== currentPlayerIndex || 
             player.isAI ||
-            (gamePhase === "action" && !player.selectedCard) ||
+            gamePhase === "action" ||
             ["roundEnd", "gameEnd"].includes(gamePhase)) &&
             gamePhase !== "selectInitialCards"
           }

@@ -3,7 +3,7 @@ import { Player } from "@/lib/types";
 import { PlayerSection } from "./game/PlayerSection";
 import { GameControlSection } from "./game/GameControlSection";
 import { InitialPhase } from "./game/InitialPhase";
-import { createDeck, dealInitialCards } from "@/lib/gameLogic";
+import { createDeck } from "@/lib/gameLogic";
 
 interface GameBoardProps {
   initialPlayerName: string;
@@ -13,54 +13,68 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
   const [gamePhase, setGamePhase] = useState<string>("selectInitialCards");
   const [players, setPlayers] = useState<Player[]>([]);
   const [selectedInitialCards, setSelectedInitialCards] = useState(0);
+  const [deck, setDeck] = useState<any[]>([]);
+  const [discardPile, setDiscardPile] = useState<any[]>([]);
 
   useEffect(() => {
-    const deck = createDeck();
-    const humanPlayerInitialCards = dealInitialCards(deck, 12);
-    const aiPlayerInitialCards = dealInitialCards(deck, 12);
+    const newDeck = createDeck();
+    setDeck(newDeck);
 
     setPlayers([
       {
+        id: "1",
         name: initialPlayerName,
         isAI: false,
-        cards: humanPlayerInitialCards,
         score: 0,
-        roundScore: 0
+        totalScore: 0,
+        grid: Array(12).fill(null)
       },
       {
+        id: "2",
         name: "AI",
         isAI: true,
-        cards: aiPlayerInitialCards,
         score: 0,
-        roundScore: 0
+        totalScore: 0,
+        grid: Array(12).fill(null)
       }
     ]);
   }, [initialPlayerName]);
 
   const handleNewGame = () => {
-    const deck = createDeck();
-    const humanPlayerInitialCards = dealInitialCards(deck, 12);
-    const aiPlayerInitialCards = dealInitialCards(deck, 12);
+    const newDeck = createDeck();
+    setDeck(newDeck);
+    setDiscardPile([]);
 
-    setPlayers([
-      {
-        ...players[0],
-        cards: humanPlayerInitialCards,
-        score: 0,
-        roundScore: 0
-      },
-      {
-        ...players[1],
-        cards: aiPlayerInitialCards,
-        score: 0,
-        roundScore: 0
-      }
-    ]);
+    setPlayers(prevPlayers => prevPlayers.map(player => ({
+      ...player,
+      score: 0,
+      totalScore: 0,
+      grid: Array(12).fill(null)
+    })));
+    
     setGamePhase("selectInitialCards");
     setSelectedInitialCards(0);
   };
 
-  const currentPlayer = players[0] || { name: "Joueur", isAI: false, cards: [], score: 0, roundScore: 0 };
+  const currentPlayer = players[0] || {
+    id: "1",
+    name: "Joueur",
+    isAI: false,
+    score: 0,
+    totalScore: 0,
+    grid: Array(12).fill(null)
+  };
+
+  const gameState = {
+    players,
+    currentPlayerIndex: 0,
+    deck,
+    discardPile,
+    gamePhase,
+    selectedCard: null,
+    roundWinner: null,
+    selectedInitialCards
+  };
 
   return (
     <div className="min-h-screen bg-game-background p-4">
@@ -73,20 +87,19 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
           onPlayerNameSubmit={() => {}}
         />
         <div className="grid gap-8">
-          {players.map((player, index) => (
-            <PlayerSection
-              key={index}
-              player={player}
-              gamePhase={gamePhase}
-              onCardFlip={() => {}}
-              isCurrentPlayer={index === 0}
-            />
-          ))}
+          <PlayerSection
+            players={players}
+            currentPlayerIndex={0}
+            gamePhase={gamePhase}
+            onCardClick={() => {}}
+          />
         </div>
         <GameControlSection
-          gamePhase={gamePhase}
+          gameState={gameState}
+          onDrawFromDeck={() => {}}
+          onDrawFromDiscard={() => {}}
           onNewGame={handleNewGame}
-          currentPlayer={currentPlayer}
+          onContinueGame={() => {}}
         />
       </div>
     </div>
