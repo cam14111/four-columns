@@ -25,7 +25,8 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
     // En cas d'égalité, le joueur qui a révélé sa dernière carte en premier gagne
     let finalRoundWinner = roundWinners[0];
     if (roundWinners.length > 1) {
-      finalRoundWinner = gameState.currentPlayerIndex === roundWinners[0].id ? 
+      const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+      finalRoundWinner = currentPlayer.id === roundWinners[0].id ? 
         roundWinners[0] : roundWinners[1];
     }
 
