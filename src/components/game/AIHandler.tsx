@@ -22,12 +22,19 @@ export const useAIHandler = ({ gameState, setGameState }: AIHandlerProps) => {
         const { newGrid, initialCardsSum } = selectInitialCardsForAI(currentPlayer);
         
         setGameState(prev => {
-          const newPlayers = [...prev.players];
-          newPlayers[prev.currentPlayerIndex] = {
-            ...currentPlayer,
-            grid: newGrid,
-            initialCardsSum
-          };
+          // Créer une copie profonde des joueurs pour éviter les références partagées
+          const newPlayers = prev.players.map((player, index) => {
+            if (index === prev.currentPlayerIndex) {
+              // Mettre à jour uniquement la grille du joueur IA
+              return {
+                ...player,
+                grid: newGrid,
+                initialCardsSum
+              };
+            }
+            // Garder les autres joueurs inchangés
+            return { ...player };
+          });
           
           // Vérifier si les deux joueurs ont sélectionné leurs cartes
           const allPlayersSelected = newPlayers.every(p => p.initialCardsSum !== undefined);
