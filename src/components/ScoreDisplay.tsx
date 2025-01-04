@@ -34,7 +34,6 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
     }
   });
 
-  // Grouper l'historique par numéro de manche
   const roundsByNumber = roundHistory?.reduce((acc, round) => {
     if (!acc[round.round_number]) {
       acc[round.round_number] = [];
@@ -67,59 +66,61 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-game-primary">Scores</h3>
-      <div className="space-y-1">
-        {players.map((player) => (
-          <div
-            key={player.id}
-            className="flex flex-col gap-2 py-3 px-4 bg-white rounded-md shadow-sm"
-          >
-            <div className="flex justify-between items-center border-b pb-2">
-              <span className="font-medium text-gray-800">{player.name}</span>
-              <div className="flex flex-col items-end">
-                <span className="text-sm text-gray-500">Total des manches</span>
-                <span className="text-lg font-bold text-[#0EA5E9]">
-                  {player.totalScore}
-                </span>
-              </div>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Manche en cours</span>
-              <span className="text-md font-semibold text-gray-700">
-                {calculateVisibleCardsSum(player)}
+      {players.map((player) => (
+        <div key={player.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <div className="flex justify-between items-center p-3 bg-[#0EA5E9] text-white">
+            <span className="font-medium">{player.name}</span>
+            <div className="flex flex-col items-end">
+              <span className="text-sm opacity-90">Total des manches</span>
+              <span className="text-lg font-bold">
+                {player.totalScore}
               </span>
             </div>
           </div>
-        ))}
-      </div>
-
-      {/* Historique des manches */}
-      <div className="mt-4 space-y-2">
-        <h4 className="text-md font-semibold text-game-primary">Historique des manches</h4>
-        <div className="space-y-2 max-h-40 overflow-y-auto">
-          {Object.entries(roundsByNumber).map(([roundNumber, rounds]) => (
-            <div key={roundNumber} className="bg-white p-2 rounded-md shadow-sm">
-              <h5 className="text-sm font-medium text-gray-700 mb-1">
-                Manche {roundNumber}
-              </h5>
-              <div className="space-y-1">
-                {rounds.map((round) => (
-                  <div key={round.id} className="flex justify-between text-sm">
-                    <span className="text-gray-600">{round.player_name}</span>
-                    <span className="font-medium text-gray-700">{round.round_score} pts</span>
-                  </div>
-                ))}
+          
+          <div className="divide-y divide-gray-100">
+            <div className="p-2.5 bg-[#D3E4FD]">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-700">Manche en cours</span>
+                <span className="font-semibold text-gray-900">
+                  {calculateVisibleCardsSum(player)}
+                </span>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
 
-      <div className="flex flex-col gap-2">
+            {Object.entries(roundsByNumber)
+              .sort(([a], [b]) => Number(b) - Number(a))
+              .map(([roundNumber, rounds]) => {
+                const playerRound = rounds.find(r => r.player_name === player.name);
+                if (!playerRound) return null;
+                
+                return (
+                  <div 
+                    key={roundNumber}
+                    className={`p-2.5 ${
+                      Number(roundNumber) % 2 === 0 
+                        ? 'bg-[#F2FCE2]' 
+                        : 'bg-[#FEF7CD]'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-700">Manche {roundNumber}</span>
+                      <span className="font-semibold text-gray-900">
+                        {playerRound.round_score}
+                      </span>
+                    </div>
+                  </div>
+                );
+            })}
+          </div>
+        </div>
+      ))}
+
+      <div className="flex flex-col gap-2 mt-4">
         <Button 
           onClick={handleNewGame}
           variant="default"
-          className="w-full"
+          className="w-full bg-[#0EA5E9] hover:bg-[#0284C7]"
         >
           Nouvelle partie
         </Button>
