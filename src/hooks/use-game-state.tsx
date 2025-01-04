@@ -26,8 +26,24 @@ export const useGameState = () => {
     
     return {
       players: [
-        { id: "1", name: "Joueur", score: 0, totalScore: 0, grid: humanGrid, isAI: false },
-        { id: "2", name: "IA", score: 0, totalScore: 0, grid: aiGrid, isAI: true }
+        { 
+          id: "1", 
+          name: "Joueur", 
+          score: 0, 
+          totalScore: 0, 
+          grid: humanGrid, 
+          isAI: false,
+          roundHistory: []
+        },
+        { 
+          id: "2", 
+          name: "IA", 
+          score: 0, 
+          totalScore: 0, 
+          grid: aiGrid, 
+          isAI: true,
+          roundHistory: []
+        }
       ],
       currentPlayerIndex: 0,
       deck: remainingDeck,
