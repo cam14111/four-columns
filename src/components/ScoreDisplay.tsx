@@ -1,7 +1,7 @@
 import { Player } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ScoreDisplayProps {
@@ -20,6 +20,7 @@ interface RoundHistory {
 
 export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDisplayProps) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: roundHistory } = useQuery({
     queryKey: ['roundHistory'],
@@ -42,12 +43,38 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
     return acc;
   }, {} as Record<number, RoundHistory[]>) || {};
 
-  const handleNewGame = () => {
-    onNewGame();
-    toast({
-      title: "Nouvelle partie",
-      description: "Les scores ont été remis à zéro"
-    });
+  const handleNewGame = async () => {
+    try {
+      // Supprimer tous les scores de l'historique
+      await supabase
+        .from('round_history')
+        .delete()
+        .neq('id', '');  // Cette condition est nécessaire car on ne peut pas DELETE sans WHERE
+
+      // Supprimer tous les scores du jeu
+      await supabase
+        .from('game_scores')
+        .delete()
+        .neq('id', '');  // Cette condition est nécessaire car on ne peut pas DELETE sans WHERE
+
+      // Invalider les queries pour forcer un rafraîchissement
+      queryClient.invalidateQueries({ queryKey: ['roundHistory'] });
+      
+      // Lancer une nouvelle partie
+      onNewGame();
+      
+      toast({
+        title: "Nouvelle partie",
+        description: "Les scores ont été remis à zéro"
+      });
+    } catch (error) {
+      console.error('Error resetting scores:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de réinitialiser les scores",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleContinueGame = () => {
