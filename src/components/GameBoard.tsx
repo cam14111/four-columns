@@ -5,6 +5,8 @@ import { GameControlSection } from "./game/GameControlSection";
 import { InitialPhase } from "./game/InitialPhase";
 import { createDeck, dealInitialCards } from "@/lib/gameLogic";
 import { useCardClickHandler } from "./CardClickHandler";
+import { selectInitialCardsForAI } from "@/lib/aiLogic";
+import { useToast } from "@/hooks/use-toast";
 
 interface GameBoardProps {
   initialPlayerName: string;
@@ -17,6 +19,7 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
   const [deck, setDeck] = useState<any[]>([]);
   const [discardPile, setDiscardPile] = useState<any[]>([]);
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
+  const { toast } = useToast();
 
   useEffect(() => {
     console.log("Initializing game with player:", initialPlayerName);
@@ -46,6 +49,37 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
       }
     ]);
   }, [initialPlayerName]);
+
+  useEffect(() => {
+    const currentPlayer = players[currentPlayerIndex];
+    
+    if (currentPlayer?.isAI) {
+      if (gamePhase === "selectInitialCards") {
+        setTimeout(() => {
+          const { newGrid, initialCardsSum } = selectInitialCardsForAI(currentPlayer);
+          
+          setPlayers(prevPlayers => {
+            const newPlayers = [...prevPlayers];
+            newPlayers[currentPlayerIndex] = {
+              ...currentPlayer,
+              grid: newGrid,
+              initialCardsSum
+            };
+            return newPlayers;
+          });
+          
+          setSelectedInitialCards(0);
+          setCurrentPlayerIndex(0);
+          setGamePhase("draw");
+          
+          toast({
+            title: "Tour de l'IA terminé",
+            description: "C'est à votre tour de jouer !"
+          });
+        }, 1000);
+      }
+    }
+  }, [currentPlayerIndex, gamePhase, players, toast]);
 
   const gameState: GameState = {
     players,
