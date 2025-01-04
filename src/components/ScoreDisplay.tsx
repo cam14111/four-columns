@@ -99,6 +99,9 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
       return;
     }
 
+    // Invalider la requête pour rafraîchir l'historique après la continuation de la partie
+    queryClient.invalidateQueries({ queryKey: ['roundHistory'] });
+    
     onContinueGame();
     toast({
       title: "Nouvelle manche",
@@ -152,7 +155,6 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
               </div>
             </div>
             
-            {/* Current round */}
             <div className={`flex justify-between items-center p-3 ${getRowBackgroundColor(0)}`}>
               <span className="text-gray-700">Manche en cours</span>
               <span className="font-semibold text-gray-800">
@@ -160,7 +162,6 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
               </span>
             </div>
 
-            {/* Round history */}
             {Object.entries(roundsByNumber)
               .sort(([a], [b]) => Number(b) - Number(a))
               .map(([roundNumber, rounds], index) => {
