@@ -78,13 +78,19 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
   const calculateTotalScore = (playerName: string): number => {
     if (!roundHistory) return 0;
     
-    // Filter out the current round (which would be the highest round number)
-    const maxRoundNumber = Math.max(...roundHistory.map(round => round.round_number));
+    // Get all round numbers for this player
+    const playerRounds = roundHistory
+      .filter(round => round.player_name === playerName)
+      .map(round => round.round_number);
     
+    // Get the current round number (highest round number)
+    const currentRoundNumber = Math.max(...playerRounds);
+    
+    // Sum up all scores from previous rounds (excluding current round)
     return roundHistory
       .filter(round => 
         round.player_name === playerName && 
-        round.round_number < maxRoundNumber
+        round.round_number < currentRoundNumber
       )
       .reduce((total, round) => total + round.round_score, 0);
   };
