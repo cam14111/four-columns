@@ -1,6 +1,7 @@
 import { Card as CardType, GameState } from "@/lib/types";
 import { handleColumnMatch } from "@/lib/columnMatchLogic";
 import { handleRoundEnd } from "@/lib/roundEndHandler";
+import { revealAllCards } from "@/lib/gameLogic";
 import { Toast } from "@/types/toast";
 
 export const handleHiddenCardSelection = (
@@ -22,11 +23,9 @@ export const handleHiddenCardSelection = (
     newGrid[cardIndex] = { ...clickedCard, state: "visible" as const };
     let newDiscardPile = [...prev.discardPile];
     
-    // Vérifier et gérer les colonnes correspondantes
     const { columnCards, filteredGrid, hasMatch } = handleColumnMatch(newGrid, cardIndex);
     
     if (hasMatch) {
-      console.log("Colonne correspondante trouvée lors de la sélection d'une carte cachée");
       newDiscardPile = [...columnCards, ...newDiscardPile];
       
       const newPlayers = [...prev.players];
@@ -40,18 +39,26 @@ export const handleHiddenCardSelection = (
         description: "Les cartes de la colonne ont été défaussées."
       });
 
-      const roundEndState = handleRoundEnd(
-        { ...currentPlayer, grid: filteredGrid },
-        newPlayers,
-        toast
-      );
-      
-      if (roundEndState) {
-        return {
-          ...prev,
-          ...roundEndState,
-          discardPile: newDiscardPile
-        };
+      // Vérifier si toutes les cartes sont révélées
+      const allCardsRevealed = filteredGrid.every(card => card === null || card.state === "visible");
+      if (allCardsRevealed) {
+        // Révéler toutes les cartes des deux joueurs
+        const updatedPlayers = revealAllCards(newPlayers);
+        
+        const roundEndState = handleRoundEnd(
+          { ...currentPlayer, grid: filteredGrid },
+          updatedPlayers,
+          toast
+        );
+        
+        if (roundEndState) {
+          return {
+            ...prev,
+            ...roundEndState,
+            players: updatedPlayers,
+            discardPile: newDiscardPile
+          };
+        }
       }
       
       return {
@@ -69,18 +76,26 @@ export const handleHiddenCardSelection = (
       grid: newGrid
     };
 
-    const roundEndState = handleRoundEnd(
-      { ...currentPlayer, grid: newGrid },
-      newPlayers,
-      toast
-    );
-    
-    if (roundEndState) {
-      return {
-        ...prev,
-        ...roundEndState,
-        discardPile: newDiscardPile
-      };
+    // Vérifier si toutes les cartes sont révélées
+    const allCardsRevealed = newGrid.every(card => card === null || card.state === "visible");
+    if (allCardsRevealed) {
+      // Révéler toutes les cartes des deux joueurs
+      const updatedPlayers = revealAllCards(newPlayers);
+      
+      const roundEndState = handleRoundEnd(
+        { ...currentPlayer, grid: newGrid },
+        updatedPlayers,
+        toast
+      );
+      
+      if (roundEndState) {
+        return {
+          ...prev,
+          ...roundEndState,
+          players: updatedPlayers,
+          discardPile: newDiscardPile
+        };
+      }
     }
     
     return {
