@@ -74,6 +74,26 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
   };
 
   const handleContinueGame = () => {
+    // Vérifier si un joueur a atteint ou dépassé 100 points
+    const playersOver100 = players.filter(player => {
+      const totalScore = calculateTotalScore(player.name);
+      return totalScore >= 100;
+    });
+
+    if (playersOver100.length > 0) {
+      // Trouver les gagnants (ceux qui n'ont pas atteint 100 points)
+      const winners = players.filter(player => {
+        const totalScore = calculateTotalScore(player.name);
+        return totalScore < 100;
+      });
+
+      toast({
+        title: "Fin de la partie !",
+        description: `${winners.map(w => w.name).join(" et ")} ${winners.length > 1 ? 'remportent' : 'remporte'} la partie ! (${playersOver100.map(p => p.name).join(" et ")} ${playersOver100.length > 1 ? 'ont' : 'a'} dépassé 100 points)`
+      });
+      return;
+    }
+
     onContinueGame();
     toast({
       title: "Nouvelle manche",
@@ -112,44 +132,49 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
 
   return (
     <div className="space-y-4">
-      {players.map((player) => (
-        <div key={player.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
-          <div className="p-3 bg-[#F1F0FB] border-b">
-            <div className="flex justify-between items-center">
-              <span className="font-medium text-gray-800">{player.name}</span>
-              <div className="bg-[#0EA5E9] text-white px-3 py-1 rounded">
-                <span className="font-bold">
-                  {calculateTotalScore(player.name)}
-                </span>
+      {players.map((player) => {
+        const totalScore = calculateTotalScore(player.name);
+        const isOver100 = totalScore >= 100;
+        
+        return (
+          <div key={player.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div className="p-3 bg-[#F1F0FB] border-b">
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-gray-800">{player.name}</span>
+                <div className={`${isOver100 ? 'bg-red-500' : 'bg-[#0EA5E9]'} text-white px-3 py-1 rounded`}>
+                  <span className="font-bold">
+                    {totalScore}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-          
-          {/* Current round */}
-          <div className={`flex justify-between items-center p-3 ${getRowBackgroundColor(0)}`}>
-            <span className="text-gray-700">Manche en cours</span>
-            <span className="font-semibold text-gray-800">
-              {calculateVisibleCardsSum(player)}
-            </span>
-          </div>
+            
+            {/* Current round */}
+            <div className={`flex justify-between items-center p-3 ${getRowBackgroundColor(0)}`}>
+              <span className="text-gray-700">Manche en cours</span>
+              <span className="font-semibold text-gray-800">
+                {calculateVisibleCardsSum(player)}
+              </span>
+            </div>
 
-          {/* Round history */}
-          {Object.entries(roundsByNumber)
-            .sort(([a], [b]) => Number(b) - Number(a))
-            .map(([roundNumber, rounds], index) => {
-              const roundScore = rounds.find(r => r.player_name === player.name)?.round_score || 0;
-              return (
-                <div
-                  key={roundNumber}
-                  className={`flex justify-between items-center p-3 ${getRowBackgroundColor(index + 1)}`}
-                >
-                  <span className="text-gray-700">Manche {roundNumber}</span>
-                  <span className="font-semibold text-gray-800">{roundScore}</span>
-                </div>
-              );
-            })}
-        </div>
-      ))}
+            {/* Round history */}
+            {Object.entries(roundsByNumber)
+              .sort(([a], [b]) => Number(b) - Number(a))
+              .map(([roundNumber, rounds], index) => {
+                const roundScore = rounds.find(r => r.player_name === player.name)?.round_score || 0;
+                return (
+                  <div
+                    key={roundNumber}
+                    className={`flex justify-between items-center p-3 ${getRowBackgroundColor(index + 1)}`}
+                  >
+                    <span className="text-gray-700">Manche {roundNumber}</span>
+                    <span className="font-semibold text-gray-800">{roundScore}</span>
+                  </div>
+                );
+              })}
+          </div>
+        );
+      })}
 
       <div className="flex flex-col gap-2 mt-4">
         <Button 

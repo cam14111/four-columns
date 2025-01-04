@@ -85,16 +85,19 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
       }
 
       // Vérifier si un joueur a atteint ou dépassé 100 points
-      const gameOver = updatedPlayers.some(player => player.totalScore + player.score >= 100);
+      const playersOver100 = updatedPlayers.filter(player => 
+        player.totalScore + player.score >= 100
+      );
 
-      if (gameOver) {
-        // Trouver le(s) vainqueur(s) de la partie (score total le plus bas)
-        const minTotalScore = Math.min(...updatedPlayers.map(p => p.totalScore + p.score));
-        const gameWinners = updatedPlayers.filter(p => p.totalScore + p.score === minTotalScore);
+      if (playersOver100.length > 0) {
+        // Le(s) joueur(s) qui n'ont pas atteint 100 points sont les gagnants
+        const winners = updatedPlayers.filter(player => 
+          player.totalScore + player.score < 100
+        );
 
         toast({
           title: "Fin de la partie !",
-          description: `${gameWinners.map(w => w.name).join(" et ")} ${gameWinners.length > 1 ? 'remportent' : 'remporte'} la partie avec ${minTotalScore} points au total !`
+          description: `${winners.map(w => w.name).join(" et ")} ${winners.length > 1 ? 'remportent' : 'remporte'} la partie ! (${playersOver100.map(p => p.name).join(" et ")} ${playersOver100.length > 1 ? 'ont' : 'a'} dépassé 100 points)`
         });
       } else {
         // Message pour le vainqueur de la manche
