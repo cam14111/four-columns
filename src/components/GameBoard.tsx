@@ -61,12 +61,22 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
   const { handleCardClick } = useCardClickHandler({
     gameState,
     setGameState: (newState) => {
-      setPlayers(newState.players);
-      setCurrentPlayerIndex(newState.currentPlayerIndex);
-      setDeck(newState.deck);
-      setDiscardPile(newState.discardPile);
-      setGamePhase(newState.gamePhase);
-      setSelectedInitialCards(newState.selectedInitialCards);
+      if (typeof newState === 'function') {
+        const updatedState = newState(gameState);
+        setPlayers(updatedState.players);
+        setCurrentPlayerIndex(updatedState.currentPlayerIndex);
+        setDeck(updatedState.deck);
+        setDiscardPile(updatedState.discardPile);
+        setGamePhase(updatedState.gamePhase);
+        setSelectedInitialCards(updatedState.selectedInitialCards);
+      } else {
+        setPlayers(newState.players);
+        setCurrentPlayerIndex(newState.currentPlayerIndex);
+        setDeck(newState.deck);
+        setDiscardPile(newState.discardPile);
+        setGamePhase(newState.gamePhase);
+        setSelectedInitialCards(newState.selectedInitialCards);
+      }
     }
   });
 
