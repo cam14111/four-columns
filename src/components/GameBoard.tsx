@@ -115,9 +115,15 @@ export const GameBoard = () => {
     const currentPlayerAllRevealed = checkAllCardsRevealed(gameState.currentPlayerIndex);
     
     if (currentPlayerAllRevealed && gameState.gamePhase !== "roundEnd" && gameState.gamePhase !== "gameEnd") {
+      // Révéler toutes les cartes des deux joueurs
       setGameState(prev => ({
         ...prev,
-        players: revealAllCards(prev.players),
+        players: prev.players.map(player => ({
+          ...player,
+          grid: player.grid.map(card => 
+            card ? { ...card, state: "visible" as const } : null
+          )
+        })),
         gamePhase: "roundEnd"
       }));
     }
