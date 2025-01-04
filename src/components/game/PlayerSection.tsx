@@ -16,7 +16,7 @@ export const PlayerSection = ({
   onCardClick 
 }: PlayerSectionProps) => {
   return (
-    <div className="md:col-span-2 space-y-8">
+    <div className="space-y-8">
       {players.map((player, index) => (
         <PlayerGrid
           key={player.id}
