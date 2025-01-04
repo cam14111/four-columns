@@ -19,35 +19,31 @@ export const useAIHandler = ({ gameState, setGameState }: AIHandlerProps) => {
 
     if (gameState.gamePhase === "selectInitialCards") {
       setTimeout(() => {
-        // Créer une copie profonde de la grille actuelle de l'IA
-        const aiGridCopy = currentPlayer.grid.map(card => 
-          card ? { ...card, state: card.state } : null
-        );
-        
-        // Sélectionner les cartes pour l'IA en utilisant la copie
-        const { newGrid, initialCardsSum } = selectInitialCardsForAI({
+        // Créer une copie profonde du joueur actuel
+        const currentPlayerCopy = {
           ...currentPlayer,
-          grid: aiGridCopy
-        });
+          grid: currentPlayer.grid.map(card => 
+            card ? { ...card } : null
+          )
+        };
+        
+        // Sélectionner les cartes pour l'IA
+        const { newGrid, initialCardsSum } = selectInitialCardsForAI(currentPlayerCopy);
         
         setGameState(prev => {
-          // Créer une copie profonde des joueurs et de leurs grilles
+          // Créer une copie profonde des joueurs
           const newPlayers = prev.players.map((player, index) => {
             if (index === prev.currentPlayerIndex) {
-              // Pour l'IA, utiliser la nouvelle grille avec une copie profonde
               return {
                 ...player,
-                grid: newGrid.map(card => 
-                  card ? { ...card, state: card.state } : null
-                ),
+                grid: newGrid,
                 initialCardsSum
               };
             }
-            // Pour les autres joueurs, faire une copie profonde de leur grille existante
             return {
               ...player,
               grid: player.grid.map(card => 
-                card ? { ...card, state: card.state } : null
+                card ? { ...card } : null
               )
             };
           });
@@ -85,12 +81,10 @@ export const useAIHandler = ({ gameState, setGameState }: AIHandlerProps) => {
         });
       }, 1000);
     } else if (gameState.gamePhase === "draw") {
-      // L'IA joue son tour pendant la phase de pioche
       setTimeout(() => {
-        // Décision de piocher depuis la défausse ou le deck
         const shouldDrawFromDiscard = 
           gameState.discardPile.length > 0 && 
-          Math.random() > 0.5; // Décision aléatoire pour l'exemple
+          Math.random() > 0.5;
 
         if (shouldDrawFromDiscard && gameState.discardPile.length > 0) {
           const drawnCard = { ...gameState.discardPile[0] };
@@ -113,7 +107,6 @@ export const useAIHandler = ({ gameState, setGameState }: AIHandlerProps) => {
     }
   };
 
-  // Utiliser useEffect pour déclencher le tour de l'IA
   useEffect(() => {
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     if (currentPlayer?.isAI) {

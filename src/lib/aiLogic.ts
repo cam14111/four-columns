@@ -1,51 +1,53 @@
 import { Card, Player } from "./types";
 
 export const selectInitialCardsForAI = (player: Player): { newGrid: Card[], initialCardsSum: number } => {
-  // Create a deep copy of the grid to avoid modifying the original
-  const newGrid = [...player.grid];
+  // Créer une copie profonde de la grille pour éviter toute mutation
+  const gridCopy = player.grid.map(card => 
+    card ? { ...card } : null
+  );
   
-  // Get only hidden cards with their indices
-  const hiddenCards = player.grid
+  // Obtenir les cartes cachées avec leurs indices
+  const hiddenCards = gridCopy
     .map((card, index) => ({ card, index }))
     .filter(item => item.card && item.card.state === "hidden");
 
   console.log("AI found hidden cards:", hiddenCards.length);
 
-  // Early return if we don't have enough hidden cards
+  // Retour anticipé si pas assez de cartes cachées
   if (hiddenCards.length < 2) {
     console.error("Not enough hidden cards for AI selection");
-    return { newGrid, initialCardsSum: 0 };
+    return { newGrid: gridCopy, initialCardsSum: 0 };
   }
 
-  // Sort cards by value (ascending)
-  const sortedCards = hiddenCards
+  // Trier les cartes par valeur (croissant)
+  const sortedCards = [...hiddenCards]
     .sort((a, b) => (a.card?.value || 0) - (b.card?.value || 0))
-    .slice(0, 2); // Take exactly 2 cards
+    .slice(0, 2);
 
   console.log("AI selected cards:", sortedCards.map(c => c.card?.value));
 
-  // Verify we have exactly 2 cards
+  // Vérifier qu'on a exactement 2 cartes
   if (sortedCards.length !== 2) {
     console.error("Could not select exactly 2 cards");
-    return { newGrid, initialCardsSum: 0 };
+    return { newGrid: gridCopy, initialCardsSum: 0 };
   }
 
-  // Calculate sum and reveal only these 2 cards
+  // Calculer la somme et révéler uniquement ces 2 cartes
   let sum = 0;
   sortedCards.forEach(({ card, index }) => {
     if (card) {
-      newGrid[index] = { ...card, state: "visible" };
+      gridCopy[index] = { ...card, state: "visible" };
       sum += card.value;
     }
   });
 
-  // Verify the final state
-  const finalVisibleCards = newGrid.filter(card => card && card.state === "visible");
+  // Vérifier l'état final
+  const finalVisibleCards = gridCopy.filter(card => card && card.state === "visible");
   if (finalVisibleCards.length !== 2) {
     console.error("Final grid has wrong number of visible cards:", finalVisibleCards.length);
-    return { newGrid: player.grid, initialCardsSum: 0 }; // Return original grid if something went wrong
+    return { newGrid: player.grid.map(card => card ? { ...card } : null), initialCardsSum: 0 };
   }
 
   console.log("AI selection complete. Sum:", sum, "Visible cards:", finalVisibleCards.length);
-  return { newGrid, initialCardsSum: sum };
+  return { newGrid: gridCopy, initialCardsSum: sum };
 };
