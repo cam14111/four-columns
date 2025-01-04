@@ -22,11 +22,18 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
     const minScore = Math.min(...updatedPlayers.map(p => p.score));
     const roundWinners = updatedPlayers.filter(p => p.score === minScore);
 
+    // En cas d'égalité, le joueur qui a révélé sa dernière carte en premier gagne
+    let finalRoundWinner = roundWinners[0];
+    if (roundWinners.length > 1) {
+      finalRoundWinner = gameState.currentPlayerIndex === roundWinners[0].id ? 
+        roundWinners[0] : roundWinners[1];
+    }
+
     // Mettre à jour le state avec les scores finaux
     setGameState(prev => ({
       ...prev,
       players: updatedPlayers,
-      roundWinner: roundWinners[0]
+      roundWinner: finalRoundWinner
     }));
 
     try {
@@ -92,7 +99,7 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
         // Message pour le vainqueur de la manche
         toast({
           title: "Fin de la manche !",
-          description: `${roundWinners.map(w => w.name).join(" et ")} ${roundWinners.length > 1 ? 'remportent' : 'remporte'} la manche avec ${minScore} points.`,
+          description: `${finalRoundWinner.name} remporte la manche avec ${minScore} points${roundWinners.length > 1 ? ' (premier à avoir retourné toutes ses cartes)' : ''}.`
         });
       }
     } catch (error) {
