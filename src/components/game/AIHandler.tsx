@@ -22,22 +22,28 @@ export const useAIHandler = ({ gameState, setGameState }: AIHandlerProps) => {
         const { newGrid, initialCardsSum } = selectInitialCardsForAI(currentPlayer);
         
         setGameState(prev => {
-          // Créer une copie profonde des joueurs pour éviter les références partagées
+          // Créer une copie profonde des joueurs et de leurs grilles
           const newPlayers = prev.players.map((player, index) => {
             if (index === prev.currentPlayerIndex) {
-              // Mettre à jour uniquement la grille du joueur IA
+              // Copie profonde de la grille pour le joueur IA
               return {
                 ...player,
-                grid: newGrid,
+                grid: newGrid.map(card => card ? { ...card } : null),
                 initialCardsSum
               };
             }
-            // Garder les autres joueurs inchangés
-            return { ...player };
+            // Copie profonde pour les autres joueurs aussi
+            return {
+              ...player,
+              grid: player.grid.map(card => card ? { ...card } : null)
+            };
           });
           
           // Vérifier si les deux joueurs ont sélectionné leurs cartes
-          const allPlayersSelected = newPlayers.every(p => p.initialCardsSum !== undefined);
+          const allPlayersSelected = newPlayers.every(p => {
+            const visibleCards = p.grid.filter(card => card && card.state === "visible");
+            return visibleCards.length === 2;
+          });
           
           if (allPlayersSelected) {
             const firstPlayerIndex = determineFirstPlayer(newPlayers);
