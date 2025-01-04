@@ -15,7 +15,7 @@ export const useCardClickHandler = ({ gameState, setGameState }: CardClickHandle
   const handleCardClick = (clickedCard: CardType) => {
     if (gameState.gamePhase === "selectInitialCards") {
       handleInitialCardSelection(clickedCard);
-    } else if (gameState.gamePhase === "action") {
+    } else if (gameState.gamePhase === "action" && gameState.selectedCard) {
       handleActionPhaseClick(clickedCard, gameState, setGameState, toast);
     } else if (gameState.gamePhase === "selectHiddenCard" && clickedCard.state === "hidden") {
       handleHiddenCardSelection(clickedCard, gameState, setGameState, toast);

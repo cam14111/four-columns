@@ -16,7 +16,6 @@ export interface Player {
   grid: (Card | null)[];
   isAI: boolean;
   initialCardsSum?: number;
-  selectedCard?: Card | null;
 }
 
 export type GamePhase = 

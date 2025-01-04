@@ -1,19 +1,101 @@
-import { GameState } from "./types";
-import { createDeck, dealInitialCards } from "./game/deckOperations";
-import { calculateInitialCardsSum, calculateRoundScores, calculateScore } from "./game/scoreCalculation";
-import { isGameOver, isRoundOver, determineFirstPlayer, revealAllCards } from "./game/gameStateChecks";
+import { Card, CardValue, Player, GameState } from "./types";
 import { checkColumnMatch } from "./columnMatchLogic";
 
-export {
-  createDeck,
-  dealInitialCards,
-  calculateInitialCardsSum,
-  calculateRoundScores,
-  calculateScore,
-  isGameOver,
-  isRoundOver,
-  determineFirstPlayer,
-  revealAllCards
+export const createDeck = (): Card[] => {
+  const deck: Card[] = [];
+  const values: CardValue[] = [-2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  
+  // Distribution des cartes selon leur fréquence
+  values.forEach((value) => {
+    const frequency = value === -2 ? 5 : // 5 cartes de -2
+                     value === -1 ? 10 : // 10 cartes de -1
+                     value === 0 ? 15 : // 15 cartes de 0
+                     10; // 10 cartes pour toutes les autres valeurs
+    
+    for (let i = 0; i < frequency; i++) {
+      deck.push({
+        id: `${value}-${i}`,
+        value,
+        state: "hidden",
+      });
+    }
+  });
+
+  return shuffle(deck);
+};
+
+export const shuffle = (array: Card[]): Card[] => {
+  const newArray = [...array];
+  for (let i = newArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+  }
+  return newArray;
+};
+
+export const dealInitialCards = (deck: Card[]): { playerGrid: Card[], remainingDeck: Card[] } => {
+  const playerGrid = deck.slice(0, 12);
+  const remainingDeck = deck.slice(12);
+  return { playerGrid, remainingDeck };
+};
+
+export const calculateInitialCardsSum = (grid: Card[]): number => {
+  return grid.filter(card => card && card.state === "visible")
+    .reduce((sum, card) => sum + card.value, 0);
+};
+
+export const determineFirstPlayer = (players: Player[]): number => {
+  let maxSum = -Infinity;
+  let firstPlayerIndex = 0;
+
+  players.forEach((player, index) => {
+    if (player.initialCardsSum !== undefined && player.initialCardsSum > maxSum) {
+      maxSum = player.initialCardsSum;
+      firstPlayerIndex = index;
+    }
+  });
+
+  return firstPlayerIndex;
+};
+
+export const calculateScore = (grid: Card[]): number => {
+  return grid.filter(card => card !== null).reduce((sum, card) => sum + card.value, 0);
+};
+
+export const isGameOver = (players: Player[]): boolean => {
+  return players.some(player => player.totalScore >= 100);
+};
+
+export const isRoundOver = (grid: Card[]): boolean => {
+  return grid.every(card => card === null || card.state === "visible");
+};
+
+export const calculateRoundScores = (players: Player[], firstFinishedPlayer: Player): Player[] => {
+  const updatedPlayers = players.map(player => {
+    const roundScore = calculateScore(player.grid);
+    let finalRoundScore = roundScore;
+    
+    // Si le premier joueur à finir n'a pas le plus petit score, il prend 10 points de pénalité
+    if (player.id === firstFinishedPlayer.id) {
+      const otherPlayersMinScore = Math.min(
+        ...players
+          .filter(p => p.id !== player.id)
+          .map(p => calculateScore(p.grid))
+      );
+      
+      if (roundScore >= otherPlayersMinScore) {
+        finalRoundScore += 10;
+      }
+    }
+    
+    return {
+      ...player,
+      score: finalRoundScore,
+      totalScore: player.totalScore + finalRoundScore
+    };
+  });
+  
+  return updatedPlayers;
 };
 
 export const makeAIMove = (gameState: GameState): GameState => {
@@ -112,4 +194,13 @@ export const makeAIMove = (gameState: GameState): GameState => {
   }
 
   return newState;
+};
+
+export const revealAllCards = (players: Player[]): Player[] => {
+  return players.map(player => ({
+    ...player,
+    grid: player.grid.map(card => 
+      card ? { ...card, state: "visible" as const } : null
+    )
+  }));
 };

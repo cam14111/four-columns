@@ -1,108 +1,209 @@
-import { useState, useEffect } from "react";
-import { Player, GamePhase, GameState } from "@/lib/types";
-import { PlayerSection } from "./game/PlayerSection";
-import { GameControlSection } from "./game/GameControlSection";
-import { InitialPhase } from "./game/InitialPhase";
-import { useCardClickHandler } from "./CardClickHandler";
-import { useAIHandler } from "./game/AIHandler";
-import { useGameStateInitializer } from "./game/GameStateInitializer";
-import { GameActions } from "./GameActions";
-import { createDeck, dealInitialCards } from "@/lib/gameLogic";
+import React, { useEffect } from "react";
+import { useGameState } from "@/hooks/use-game-state";
+import { GameActions } from "@/components/GameActions";
+import { useCardClickHandler } from "@/components/CardClickHandler";
+import { PlayerGrid } from "./PlayerGrid";
+import { GameControls } from "./GameControls";
+import { ScoreDisplay } from "./ScoreDisplay";
+import { DiscardPile } from "./DiscardPile";
+import { TurnPhase } from "./TurnPhase";
+import { InitialCardsSelection } from "./InitialCardsSelection";
+import { PlayerNameForm } from "./PlayerNameForm";
+import { saveGameScore } from "@/lib/scoreService";
+import { useToast } from "@/hooks/use-toast";
+import { createDeck, dealInitialCards, revealAllCards } from "@/lib/gameLogic";
 
-interface GameBoardProps {
-  initialPlayerName: string;
-}
+export const GameBoard = () => {
+  const { gameState, setGameState } = useGameState();
+  const { handleCardClick } = useCardClickHandler({ gameState, setGameState });
+  const { 
+    handleKeepCard, 
+    handleDiscardCard, 
+    handleDrawFromDeck, 
+    handleDrawFromDiscard 
+  } = GameActions({ gameState, setGameState });
+  const { toast } = useToast();
 
-export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
-  const [gameState, setGameState] = useState<GameState>({
-    players: [],
-    currentPlayerIndex: 0,
-    deck: [],
-    discardPile: [],
-    gamePhase: "selectInitialCards",
-    selectedCard: null,
-    roundWinner: null,
-    selectedInitialCards: 0
-  });
-
-  useGameStateInitializer({
-    initialPlayerName,
-    onStateInitialized: (initialState) => setGameState(initialState)
-  });
-
-  const { handleAITurn } = useAIHandler({ gameState, setGameState });
-
-  useEffect(() => {
-    handleAITurn();
-  }, [gameState.currentPlayerIndex, gameState.gamePhase]);
-
-  const { handleCardClick } = useCardClickHandler({
-    gameState,
-    setGameState
-  });
-
-  const { handleDrawFromDeck, handleDrawFromDiscard } = GameActions({ 
-    gameState, 
-    setGameState
-  });
-
-  const handleNewGame = () => {
-    const newDeck = createDeck();
-    const { playerGrid: humanGrid, remainingDeck: deck1 } = dealInitialCards(newDeck);
-    const { playerGrid: aiGrid, remainingDeck: finalDeck } = dealInitialCards(deck1);
-
+  const handlePlayerNameSubmit = (name: string) => {
     setGameState(prev => ({
       ...prev,
-      deck: finalDeck,
-      discardPile: [],
-      currentPlayerIndex: 0,
-      players: prev.players.map((player, index) => ({
+      players: [
+        { ...prev.players[0], name },
+        prev.players[1]
+      ]
+    }));
+  };
+
+  const handleNewGame = () => {
+    const deck = createDeck();
+    const { playerGrid: humanGrid, remainingDeck: deck1 } = dealInitialCards(deck);
+    const { playerGrid: aiGrid, remainingDeck: deck2 } = dealInitialCards(deck1);
+    
+    const firstDiscardCard = { ...deck2[0], state: "visible" as const };
+    const remainingDeck = deck2.slice(1);
+    
+    setGameState(prev => ({
+      ...prev,
+      players: prev.players.map(player => ({
         ...player,
         score: 0,
         totalScore: 0,
-        grid: index === 0 ? humanGrid : aiGrid,
-        initialCardsSum: 0
+        grid: player.isAI ? aiGrid : humanGrid,
       })),
+      currentPlayerIndex: 0,
+      deck: remainingDeck,
+      discardPile: [firstDiscardCard],
       gamePhase: "selectInitialCards",
+      selectedCard: null,
+      roundWinner: null,
       selectedInitialCards: 0
     }));
   };
 
+  const handleContinueGame = () => {
+    const deck = createDeck();
+    const { playerGrid: humanGrid, remainingDeck: deck1 } = dealInitialCards(deck);
+    const { playerGrid: aiGrid, remainingDeck: deck2 } = dealInitialCards(deck1);
+    
+    const firstDiscardCard = { ...deck2[0], state: "visible" as const };
+    const remainingDeck = deck2.slice(1);
+    
+    setGameState(prev => ({
+      ...prev,
+      players: prev.players.map(player => ({
+        ...player,
+        score: 0,
+        grid: player.isAI ? aiGrid : humanGrid,
+      })),
+      currentPlayerIndex: 0,
+      deck: remainingDeck,
+      discardPile: [firstDiscardCard],
+      gamePhase: "selectInitialCards",
+      selectedCard: null,
+      roundWinner: null,
+      selectedInitialCards: 0
+    }));
+  };
+
+  const handleGameEnd = async () => {
+    const humanPlayer = gameState.players[0];
+    try {
+      await saveGameScore(
+        humanPlayer.name,
+        humanPlayer.score,
+        humanPlayer.totalScore
+      );
+      toast({
+        title: "Score sauvegardé",
+        description: "Votre score a été enregistré avec succès !",
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de sauvegarder le score",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const checkAllCardsRevealed = (playerIndex: number) => {
+    const player = gameState.players[playerIndex];
+    return player.grid.every(card => card === null || card.state === "visible");
+  };
+
+  useEffect(() => {
+    const currentPlayerAllRevealed = checkAllCardsRevealed(gameState.currentPlayerIndex);
+    
+    if (currentPlayerAllRevealed && gameState.gamePhase !== "roundEnd" && gameState.gamePhase !== "gameEnd") {
+      // Révéler toutes les cartes des deux joueurs
+      setGameState(prev => ({
+        ...prev,
+        players: prev.players.map(player => ({
+          ...player,
+          grid: player.grid.map(card => 
+            card ? { ...card, state: "visible" as const } : null
+          )
+        })),
+        gamePhase: "roundEnd"
+      }));
+    }
+  }, [gameState.players, gameState.currentPlayerIndex, gameState.gamePhase]);
+
+  if (gameState.gamePhase === "gameEnd" && gameState.players[0].name !== "Joueur") {
+    handleGameEnd();
+  }
+
+  if (gameState.players[0].name === "Joueur") {
+    return <PlayerNameForm onSubmit={handlePlayerNameSubmit} />;
+  }
+
   return (
-    <div className="min-h-screen bg-game-background p-4">
-      <div className="max-w-7xl mx-auto">
-        <InitialPhase
-          gamePhase={gameState.gamePhase}
-          currentPlayer={gameState.players[0] || {
-            id: "1",
-            name: initialPlayerName,
-            isAI: false,
-            score: 0,
-            totalScore: 0,
-            grid: Array(12).fill(null)
-          }}
-          selectedInitialCards={gameState.selectedInitialCards}
-          playerName={initialPlayerName}
-          onPlayerNameSubmit={() => {}}
-        />
-        <div className="grid grid-cols-1 md:grid-cols-[1fr,400px] gap-8">
-          <PlayerSection
-            players={gameState.players}
-            currentPlayerIndex={gameState.currentPlayerIndex}
-            gamePhase={gameState.gamePhase}
-            onCardClick={handleCardClick}
+    <div className="min-h-screen bg-game-background p-8">
+      <div className="max-w-4xl mx-auto space-y-8">
+        <h1 className="text-3xl font-bold text-center text-game-primary">Skyjo</h1>
+        
+        {gameState.gamePhase === "selectInitialCards" && !gameState.players[gameState.currentPlayerIndex].isAI && (
+          <InitialCardsSelection 
+            currentPlayer={gameState.players[gameState.currentPlayerIndex]}
+            selectedInitialCards={gameState.selectedInitialCards}
           />
-          <GameControlSection
-            gameState={gameState}
-            onDrawFromDeck={handleDrawFromDeck}
-            onDrawFromDiscard={handleDrawFromDiscard}
-            onNewGame={handleNewGame}
-            onContinueGame={() => {}}
-          />
+        )}
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="md:col-span-2 space-y-8">
+            {gameState.players.map((player, index) => (
+              <PlayerGrid
+                key={player.id}
+                player={player}
+                onCardClick={handleCardClick}
+                disabled={
+                  (index !== gameState.currentPlayerIndex || 
+                  player.isAI ||
+                  (gameState.gamePhase === "action" && !gameState.selectedCard) ||
+                  ["roundEnd", "gameEnd"].includes(gameState.gamePhase)) &&
+                  gameState.gamePhase !== "selectInitialCards"
+                }
+              />
+            ))}
+          </div>
+          
+          <div className="space-y-8">
+            <div className="flex gap-4 items-start">
+              <GameControls
+                gameState={gameState}
+                onDrawFromDeck={handleDrawFromDeck}
+                disabled={
+                  gameState.players[gameState.currentPlayerIndex].isAI ||
+                  gameState.gamePhase === "selectInitialCards" ||
+                  ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
+                }
+              />
+              <DiscardPile 
+                discardPile={gameState.discardPile}
+                onDrawFromDiscard={handleDrawFromDiscard}
+                disabled={
+                  gameState.players[gameState.currentPlayerIndex].isAI ||
+                  gameState.gamePhase !== "draw" ||
+                  ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
+                }
+              />
+            </div>
+            <ScoreDisplay 
+              players={gameState.players} 
+              onNewGame={handleNewGame}
+              onContinueGame={handleContinueGame}
+            />
+          </div>
         </div>
+
+        <TurnPhase
+          gamePhase={gameState.gamePhase}
+          selectedCard={gameState.selectedCard}
+          onKeepCard={handleKeepCard}
+          onDiscardCard={handleDiscardCard}
+          isCurrentPlayerAI={gameState.players[gameState.currentPlayerIndex].isAI}
+        />
       </div>
     </div>
   );
 };
-
-export default GameBoard;
