@@ -11,7 +11,8 @@ import { InitialCardsSelection } from "./InitialCardsSelection";
 import { PlayerNameForm } from "./PlayerNameForm";
 import { saveGameScore } from "@/lib/scoreService";
 import { useToast } from "@/hooks/use-toast";
-import { createDeck, dealInitialCards, revealAllCards } from "@/lib/gameLogic";
+import { createDeck, dealInitialCards } from "@/lib/gameLogic";
+import { supabase } from "@/integrations/supabase/client";
 
 export const GameBoard = () => {
   const { gameState, setGameState } = useGameState();
@@ -85,35 +86,75 @@ export const GameBoard = () => {
     }));
   };
 
+  const calculateVisibleCardsSum = (player: Player) => {
+    return player.grid
+      .filter(card => card && card.state === "visible")
+      .reduce((sum, card) => sum + (card?.value || 0), 0);
+  };
+
   const handleGameEnd = async () => {
-    const humanPlayer = gameState.players[0];
-    try {
-      await saveGameScore(
-        humanPlayer.name,
-        humanPlayer.score,
-        calculateTotalScore(humanPlayer.name)
-      );
-      toast({
-        title: "Score sauvegardé",
-        description: "Votre score a été enregistré avec succès !",
-      });
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description: "Impossible de sauvegarder le score",
-        variant: "destructive",
-      });
+    // Calculer les scores finaux pour tous les joueurs
+    const updatedPlayers = gameState.players.map(player => ({
+      ...player,
+      score: calculateVisibleCardsSum(player)
+    }));
+
+    // Déterminer le vainqueur de la manche
+    const minScore = Math.min(...updatedPlayers.map(p => p.score));
+    const winners = updatedPlayers.filter(p => p.score === minScore);
+
+    // Mettre à jour le state avec les scores finaux
+    setGameState(prev => ({
+      ...prev,
+      players: updatedPlayers,
+      roundWinner: winners[0]
+    }));
+
+    // Sauvegarder les scores dans la base de données
+    const roundNumber = (await supabase
+      .from('round_history')
+      .select('round_number')
+      .order('round_number', { ascending: false })
+      .limit(1)
+      .single()
+    ).data?.round_number || 0;
+
+    const currentRoundNumber = roundNumber + 1;
+
+    // Sauvegarder les scores de la manche pour chaque joueur
+    for (const player of updatedPlayers) {
+      try {
+        await supabase.from('round_history').insert({
+          player_name: player.name,
+          round_number: currentRoundNumber,
+          round_score: player.score
+        });
+
+        await saveGameScore(
+          player.name,
+          player.score,
+          player.totalScore + player.score
+        );
+      } catch (error) {
+        console.error('Error saving scores:', error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de sauvegarder les scores",
+          variant: "destructive",
+        });
+        return;
+      }
     }
+
+    toast({
+      title: "Partie terminée !",
+      description: `${winners.map(w => w.name).join(" et ")} ${winners.length > 1 ? 'remportent' : 'remporte'} la manche avec ${minScore} points !`,
+    });
   };
 
   const checkAllCardsRevealed = (playerIndex: number) => {
     const player = gameState.players[playerIndex];
     return player.grid.every(card => card === null || card.state === "visible");
-  };
-
-  const calculateTotalScore = (playerName: string): number => {
-    const roundHistory = gameState.players.find(p => p.name === playerName)?.roundHistory || [];
-    return roundHistory.reduce((total, score) => total + score, 0);
   };
 
   useEffect(() => {
@@ -138,9 +179,11 @@ export const GameBoard = () => {
     }
   }, [gameState.players, gameState.currentPlayerIndex, gameState.gamePhase]);
 
-  if (gameState.gamePhase === "gameEnd" && gameState.players[0].name !== "Joueur") {
-    handleGameEnd();
-  }
+  useEffect(() => {
+    if (gameState.gamePhase === "gameEnd" && gameState.players[0].name !== "Joueur") {
+      handleGameEnd();
+    }
+  }, [gameState.gamePhase]);
 
   if (gameState.players[0].name === "Joueur") {
     return <PlayerNameForm onSubmit={handlePlayerNameSubmit} />;
