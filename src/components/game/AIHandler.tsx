@@ -19,23 +19,36 @@ export const useAIHandler = ({ gameState, setGameState }: AIHandlerProps) => {
 
     if (gameState.gamePhase === "selectInitialCards") {
       setTimeout(() => {
-        const { newGrid, initialCardsSum } = selectInitialCardsForAI(currentPlayer);
+        // Créer une copie profonde de la grille actuelle de l'IA
+        const aiGridCopy = currentPlayer.grid.map(card => 
+          card ? { ...card, state: card.state } : null
+        );
+        
+        // Sélectionner les cartes pour l'IA en utilisant la copie
+        const { newGrid, initialCardsSum } = selectInitialCardsForAI({
+          ...currentPlayer,
+          grid: aiGridCopy
+        });
         
         setGameState(prev => {
           // Créer une copie profonde des joueurs et de leurs grilles
           const newPlayers = prev.players.map((player, index) => {
             if (index === prev.currentPlayerIndex) {
-              // Copie profonde de la grille pour le joueur IA
+              // Pour l'IA, utiliser la nouvelle grille avec une copie profonde
               return {
                 ...player,
-                grid: newGrid.map(card => card ? { ...card } : null),
+                grid: newGrid.map(card => 
+                  card ? { ...card, state: card.state } : null
+                ),
                 initialCardsSum
               };
             }
-            // Copie profonde pour les autres joueurs aussi
+            // Pour les autres joueurs, faire une copie profonde de leur grille existante
             return {
               ...player,
-              grid: player.grid.map(card => card ? { ...card } : null)
+              grid: player.grid.map(card => 
+                card ? { ...card, state: card.state } : null
+              )
             };
           });
           
@@ -80,7 +93,7 @@ export const useAIHandler = ({ gameState, setGameState }: AIHandlerProps) => {
           Math.random() > 0.5; // Décision aléatoire pour l'exemple
 
         if (shouldDrawFromDiscard && gameState.discardPile.length > 0) {
-          const drawnCard = gameState.discardPile[0];
+          const drawnCard = { ...gameState.discardPile[0] };
           setGameState(prev => ({
             ...prev,
             discardPile: prev.discardPile.slice(1),
@@ -88,7 +101,7 @@ export const useAIHandler = ({ gameState, setGameState }: AIHandlerProps) => {
             gamePhase: "action"
           }));
         } else {
-          const drawnCard = gameState.deck[0];
+          const drawnCard = { ...gameState.deck[0] };
           setGameState(prev => ({
             ...prev,
             deck: prev.deck.slice(1),
