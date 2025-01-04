@@ -45,22 +45,18 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
 
   const handleNewGame = async () => {
     try {
-      // Supprimer tous les scores de l'historique avec une clause WHERE
       await supabase
         .from('round_history')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Cette condition sera toujours vraie
+        .neq('id', '00000000-0000-0000-0000-000000000000');
 
-      // Supprimer tous les scores du jeu avec une clause WHERE
       await supabase
         .from('game_scores')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Cette condition sera toujours vraie
+        .neq('id', '00000000-0000-0000-0000-000000000000');
 
-      // Invalider les queries pour forcer un rafraîchissement
       queryClient.invalidateQueries({ queryKey: ['roundHistory'] });
       
-      // Lancer une nouvelle partie
       onNewGame();
       
       toast({
@@ -105,7 +101,7 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
   const calculateTotalScore = (playerName: string): number => {
     if (!roundHistory) return 0;
     
-    // Get all completed rounds for this player
+    // Get all completed rounds for this player (excluding current round)
     const completedRounds = roundHistory
       .filter(round => round.player_name === playerName)
       .sort((a, b) => a.round_number - b.round_number);
