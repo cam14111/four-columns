@@ -45,15 +45,17 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
 
   const handleNewGame = async () => {
     try {
-      // Supprimer tous les scores de l'historique
+      // Supprimer tous les scores de l'historique avec une clause WHERE
       await supabase
         .from('round_history')
-        .delete();
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Cette condition sera toujours vraie
 
-      // Supprimer tous les scores du jeu
+      // Supprimer tous les scores du jeu avec une clause WHERE
       await supabase
         .from('game_scores')
-        .delete();
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Cette condition sera toujours vraie
 
       // Invalider les queries pour forcer un rafraîchissement
       queryClient.invalidateQueries({ queryKey: ['roundHistory'] });
