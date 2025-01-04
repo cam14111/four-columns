@@ -3,7 +3,7 @@ import { Player, GamePhase } from "@/lib/types";
 import { PlayerSection } from "./game/PlayerSection";
 import { GameControlSection } from "./game/GameControlSection";
 import { InitialPhase } from "./game/InitialPhase";
-import { createDeck } from "@/lib/gameLogic";
+import { createDeck, dealInitialCards } from "@/lib/gameLogic";
 
 interface GameBoardProps {
   initialPlayerName: string;
@@ -19,7 +19,11 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
   useEffect(() => {
     console.log("Initializing game with player:", initialPlayerName);
     const newDeck = createDeck();
-    setDeck(newDeck);
+    const { playerGrid: humanGrid, remainingDeck: deck1 } = dealInitialCards(newDeck);
+    const { playerGrid: aiGrid, remainingDeck: finalDeck } = dealInitialCards(deck1);
+
+    setDeck(finalDeck);
+    setDiscardPile([]);
 
     setPlayers([
       {
@@ -28,7 +32,7 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
         isAI: false,
         score: 0,
         totalScore: 0,
-        grid: Array(12).fill(null)
+        grid: humanGrid
       },
       {
         id: "2",
@@ -36,21 +40,24 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
         isAI: true,
         score: 0,
         totalScore: 0,
-        grid: Array(12).fill(null)
+        grid: aiGrid
       }
     ]);
   }, [initialPlayerName]);
 
   const handleNewGame = () => {
     const newDeck = createDeck();
-    setDeck(newDeck);
+    const { playerGrid: humanGrid, remainingDeck: deck1 } = dealInitialCards(newDeck);
+    const { playerGrid: aiGrid, remainingDeck: finalDeck } = dealInitialCards(deck1);
+
+    setDeck(finalDeck);
     setDiscardPile([]);
 
-    setPlayers(prevPlayers => prevPlayers.map(player => ({
+    setPlayers(prevPlayers => prevPlayers.map((player, index) => ({
       ...player,
       score: 0,
       totalScore: 0,
-      grid: Array(12).fill(null)
+      grid: index === 0 ? humanGrid : aiGrid
     })));
     
     setGamePhase("selectInitialCards");
