@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Player } from "@/lib/types";
+import { Player, GamePhase } from "@/lib/types";
 import { PlayerSection } from "./game/PlayerSection";
 import { GameControlSection } from "./game/GameControlSection";
 import { InitialPhase } from "./game/InitialPhase";
@@ -10,7 +10,7 @@ interface GameBoardProps {
 }
 
 export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
-  const [gamePhase, setGamePhase] = useState<string>("selectInitialCards");
+  const [gamePhase, setGamePhase] = useState<GamePhase>("selectInitialCards");
   const [players, setPlayers] = useState<Player[]>([]);
   const [selectedInitialCards, setSelectedInitialCards] = useState(0);
   const [deck, setDeck] = useState<any[]>([]);

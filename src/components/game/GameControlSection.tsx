@@ -19,6 +19,13 @@ export const GameControlSection = ({
   onNewGame,
   onContinueGame
 }: GameControlSectionProps) => {
+  const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+  
+  // If there's no current player, don't render the controls
+  if (!currentPlayer) {
+    return null;
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex gap-4 items-start">
@@ -26,7 +33,7 @@ export const GameControlSection = ({
           gameState={gameState}
           onDrawFromDeck={onDrawFromDeck}
           disabled={
-            gameState.players[gameState.currentPlayerIndex].isAI ||
+            currentPlayer.isAI ||
             gameState.gamePhase === "selectInitialCards" ||
             ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
           }
@@ -35,7 +42,7 @@ export const GameControlSection = ({
           discardPile={gameState.discardPile}
           onDrawFromDiscard={onDrawFromDiscard}
           disabled={
-            gameState.players[gameState.currentPlayerIndex].isAI ||
+            currentPlayer.isAI ||
             gameState.gamePhase !== "draw" ||
             ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
           }
