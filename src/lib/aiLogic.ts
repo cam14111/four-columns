@@ -10,12 +10,19 @@ export const selectInitialCardsForAI = (player: Player): { newGrid: Card[], init
   const newGrid = [...player.grid];
   let sum = 0;
 
-  // Sélectionner exactement 2 cartes avec les plus petites valeurs
+  // Sélectionner EXACTEMENT 2 cartes avec les plus petites valeurs
   const cardsToReveal = hiddenCards.slice(0, 2);
 
+  if (cardsToReveal.length !== 2) {
+    console.error("Error: AI should select exactly 2 cards but got", cardsToReveal.length);
+    return { newGrid, initialCardsSum: 0 };
+  }
+
   cardsToReveal.forEach(cardInfo => {
-    newGrid[cardInfo.index] = { ...cardInfo.card, state: "visible" };
-    sum += cardInfo.card.value;
+    if (cardInfo && cardInfo.card) {
+      newGrid[cardInfo.index] = { ...cardInfo.card, state: "visible" };
+      sum += cardInfo.card.value;
+    }
   });
 
   console.log("AI selected cards:", cardsToReveal.length, "cards with sum:", sum);
