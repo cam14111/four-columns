@@ -20,13 +20,13 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
 
     // Déterminer le vainqueur de la manche
     const minScore = Math.min(...updatedPlayers.map(p => p.score));
-    const winners = updatedPlayers.filter(p => p.score === minScore);
+    const roundWinners = updatedPlayers.filter(p => p.score === minScore);
 
     // Mettre à jour le state avec les scores finaux
     setGameState(prev => ({
       ...prev,
       players: updatedPlayers,
-      roundWinner: winners[0]
+      roundWinner: roundWinners[0]
     }));
 
     try {
@@ -76,10 +76,25 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
         }
       }
 
-      toast({
-        title: "Partie terminée !",
-        description: `${winners.map(w => w.name).join(" et ")} ${winners.length > 1 ? 'remportent' : 'remporte'} la manche avec ${minScore} points !`,
-      });
+      // Vérifier si un joueur a atteint ou dépassé 100 points
+      const gameOver = updatedPlayers.some(player => player.totalScore + player.score >= 100);
+
+      if (gameOver) {
+        // Trouver le(s) vainqueur(s) de la partie (score total le plus bas)
+        const minTotalScore = Math.min(...updatedPlayers.map(p => p.totalScore + p.score));
+        const gameWinners = updatedPlayers.filter(p => p.totalScore + p.score === minTotalScore);
+
+        toast({
+          title: "Fin de la partie !",
+          description: `${gameWinners.map(w => w.name).join(" et ")} ${gameWinners.length > 1 ? 'remportent' : 'remporte'} la partie avec ${minTotalScore} points au total !`,
+        });
+      } else {
+        // Message pour le vainqueur de la manche
+        toast({
+          title: "Fin de la manche !",
+          description: `${roundWinners.map(w => w.name).join(" et ")} ${roundWinners.length > 1 ? 'ont' : 'a'} le meilleur score de la manche avec ${minScore} points.`,
+        });
+      }
     } catch (error) {
       console.error('Error handling game end:', error);
       toast({
