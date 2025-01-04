@@ -86,13 +86,13 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
 
         toast({
           title: "Fin de la partie !",
-          description: `${gameWinners.map(w => w.name).join(" et ")} ${gameWinners.length > 1 ? 'remportent' : 'remporte'} la partie avec ${minTotalScore} points au total !`,
+          description: `${gameWinners.map(w => w.name).join(" et ")} ${gameWinners.length > 1 ? 'remportent' : 'remporte'} la partie avec ${minTotalScore} points au total !`
         });
       } else {
         // Message pour le vainqueur de la manche
         toast({
           title: "Fin de la manche !",
-          description: `${roundWinners.map(w => w.name).join(" et ")} ${roundWinners.length > 1 ? 'ont' : 'a'} le meilleur score de la manche avec ${minScore} points.`,
+          description: `${roundWinners.map(w => w.name).join(" et ")} ${roundWinners.length > 1 ? 'remportent' : 'remporte'} la manche avec ${minScore} points.`,
         });
       }
     } catch (error) {
