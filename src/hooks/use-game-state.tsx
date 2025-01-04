@@ -42,50 +42,69 @@ export const useGameState = () => {
   useEffect(() => {
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     
-    if (currentPlayer.isAI) {
-      if (gameState.gamePhase === "selectInitialCards") {
-        setTimeout(() => {
-          const { newGrid, initialCardsSum } = selectInitialCardsForAI(currentPlayer);
+    if (currentPlayer?.isAI && gameState.gamePhase === "selectInitialCards") {
+      // Ajout d'un délai pour l'animation
+      setTimeout(() => {
+        // Vérifier si l'IA a déjà sélectionné ses cartes
+        const visibleCards = currentPlayer.grid.filter(card => card && card.state === "visible");
+        if (visibleCards.length >= 2) {
+          console.log("AI has already selected its cards, skipping...");
+          return;
+        }
+
+        const { newGrid, initialCardsSum } = selectInitialCardsForAI(currentPlayer);
+        
+        // Vérifier que exactement 2 cartes ont été sélectionnées
+        const selectedCards = newGrid.filter(card => card && card.state === "visible");
+        if (selectedCards.length !== 2) {
+          console.error("AI selected wrong number of cards:", selectedCards.length);
+          return;
+        }
+        
+        setGameState(prev => {
+          const newPlayers = [...prev.players];
+          newPlayers[prev.currentPlayerIndex] = {
+            ...currentPlayer,
+            grid: newGrid,
+            initialCardsSum
+          };
           
-          setGameState(prev => {
-            const newPlayers = [...prev.players];
-            newPlayers[prev.currentPlayerIndex] = {
-              ...currentPlayer,
-              grid: newGrid,
-              initialCardsSum
-            };
-            
-            if (prev.currentPlayerIndex === prev.players.length - 1) {
-              const firstPlayerIndex = determineFirstPlayer(newPlayers);
-              toast({
-                title: "Premier joueur déterminé !",
-                description: `${newPlayers[firstPlayerIndex].name} commence avec la plus grande somme.`
-              });
-              
-              return {
-                ...prev,
-                players: newPlayers,
-                currentPlayerIndex: firstPlayerIndex,
-                gamePhase: "draw" as GamePhase,
-                selectedInitialCards: 0
-              };
-            }
+          // Vérifier si les deux joueurs ont sélectionné leurs cartes
+          const allPlayersSelected = newPlayers.every(p => {
+            const visibleCards = p.grid.filter(card => card && card.state === "visible");
+            return visibleCards.length === 2;
+          });
+          
+          if (allPlayersSelected) {
+            const firstPlayerIndex = determineFirstPlayer(newPlayers);
+            toast({
+              title: "Premier joueur déterminé !",
+              description: `${newPlayers[firstPlayerIndex].name} commence avec la plus grande somme.`
+            });
             
             return {
               ...prev,
               players: newPlayers,
-              currentPlayerIndex: prev.currentPlayerIndex + 1,
+              currentPlayerIndex: firstPlayerIndex,
+              gamePhase: "draw" as GamePhase,
               selectedInitialCards: 0
             };
-          });
-        }, 1000);
-      } else if (gameState.gamePhase !== "roundEnd" && gameState.gamePhase !== "gameEnd") {
-        setTimeout(() => {
-          setGameState(makeAIMove);
-        }, 1000);
-      }
+          }
+          
+          return {
+            ...prev,
+            players: newPlayers,
+            currentPlayerIndex: prev.currentPlayerIndex + 1,
+            selectedInitialCards: 0
+          };
+        });
+      }, 1000);
+    } else if (currentPlayer?.isAI && gameState.gamePhase !== "roundEnd" && gameState.gamePhase !== "gameEnd") {
+      setTimeout(() => {
+        setGameState(makeAIMove);
+      }, 1000);
     }
-  }, [gameState.currentPlayerIndex, gameState.gamePhase]);
+  }, [gameState.currentPlayerIndex, gameState.gamePhase, toast]);
 
   useEffect(() => {
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
