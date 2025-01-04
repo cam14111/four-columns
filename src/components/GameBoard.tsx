@@ -9,22 +9,19 @@ import { DiscardPile } from "./DiscardPile";
 import { TurnPhase } from "./TurnPhase";
 import { InitialCardsSelection } from "./InitialCardsSelection";
 import { PlayerNameForm } from "./PlayerNameForm";
-import { saveGameScore } from "@/lib/scoreService";
-import { useToast } from "@/hooks/use-toast";
+import { useRoundEndHandler } from "./RoundEndHandler";
 import { createDeck, dealInitialCards } from "@/lib/gameLogic";
-import { supabase } from "@/integrations/supabase/client";
-import { Player } from "@/lib/types";
 
 export const GameBoard = () => {
   const { gameState, setGameState } = useGameState();
   const { handleCardClick } = useCardClickHandler({ gameState, setGameState });
+  const { handleGameEnd } = useRoundEndHandler({ gameState, setGameState });
   const { 
     handleKeepCard, 
     handleDiscardCard, 
     handleDrawFromDeck, 
     handleDrawFromDiscard 
   } = GameActions({ gameState, setGameState });
-  const { toast } = useToast();
 
   const handlePlayerNameSubmit = (name: string) => {
     setGameState(prev => ({
@@ -87,80 +84,6 @@ export const GameBoard = () => {
     }));
   };
 
-  const calculateVisibleCardsSum = (player: Player) => {
-    return player.grid
-      .filter(card => card && card.state === "visible")
-      .reduce((sum, card) => sum + (card?.value || 0), 0);
-  };
-
-  const handleGameEnd = async () => {
-    // Calculer les scores finaux pour tous les joueurs
-    const updatedPlayers = gameState.players.map(player => ({
-      ...player,
-      score: calculateVisibleCardsSum(player)
-    }));
-
-    // Déterminer le vainqueur de la manche
-    const minScore = Math.min(...updatedPlayers.map(p => p.score));
-    const winners = updatedPlayers.filter(p => p.score === minScore);
-
-    // Mettre à jour le state avec les scores finaux
-    setGameState(prev => ({
-      ...prev,
-      players: updatedPlayers,
-      roundWinner: winners[0]
-    }));
-
-    try {
-      // Récupérer le dernier numéro de manche
-      const { data: lastRound } = await supabase
-        .from('round_history')
-        .select('round_number')
-        .order('round_number', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      const currentRoundNumber = (lastRound?.round_number || 0) + 1;
-
-      // Sauvegarder les scores de la manche pour chaque joueur
-      for (const player of updatedPlayers) {
-        try {
-          await supabase.from('round_history').insert({
-            player_name: player.name,
-            round_number: currentRoundNumber,
-            round_score: player.score
-          });
-
-          await saveGameScore(
-            player.name,
-            player.score,
-            player.totalScore + player.score
-          );
-        } catch (error) {
-          console.error('Error saving scores:', error);
-          toast({
-            title: "Erreur",
-            description: "Impossible de sauvegarder les scores",
-            variant: "destructive",
-          });
-          return;
-        }
-      }
-
-      toast({
-        title: "Partie terminée !",
-        description: `${winners.map(w => w.name).join(" et ")} ${winners.length > 1 ? 'remportent' : 'remporte'} la manche avec ${minScore} points !`,
-      });
-    } catch (error) {
-      console.error('Error handling game end:', error);
-      toast({
-        title: "Erreur",
-        description: "Une erreur est survenue lors de la fin de partie",
-        variant: "destructive",
-      });
-    }
-  };
-
   const checkAllCardsRevealed = (playerIndex: number) => {
     const player = gameState.players[playerIndex];
     return player.grid.every(card => card === null || card.state === "visible");
@@ -189,7 +112,7 @@ export const GameBoard = () => {
   }, [gameState.players, gameState.currentPlayerIndex, gameState.gamePhase]);
 
   useEffect(() => {
-    if (gameState.gamePhase === "gameEnd" && gameState.players[0].name !== "Joueur") {
+    if (gameState.gamePhase === "roundEnd") {
       handleGameEnd();
     }
   }, [gameState.gamePhase]);
