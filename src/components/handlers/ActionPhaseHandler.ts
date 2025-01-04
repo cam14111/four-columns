@@ -1,12 +1,12 @@
 import { Card, GameState } from "@/lib/types";
-import { Toast } from "@/hooks/use-toast";
+import { toast as Toast } from "@/hooks/use-toast";
 import { checkColumnMatch } from "@/lib/columnMatchLogic";
 
 export const handleActionPhaseClick = (
   clickedCard: Card,
   gameState: GameState,
   setGameState: React.Dispatch<React.SetStateAction<GameState>>,
-  toast: Toast
+  toast: typeof Toast
 ) => {
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
   
