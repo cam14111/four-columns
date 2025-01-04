@@ -41,7 +41,8 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
         isAI: false,
         score: 0,
         totalScore: 0,
-        grid: humanGrid
+        grid: humanGrid,
+        initialCardsSum: 0
       },
       {
         id: "2",
@@ -49,7 +50,8 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
         isAI: true,
         score: 0,
         totalScore: 0,
-        grid: aiGrid
+        grid: aiGrid,
+        initialCardsSum: 0
       }
     ]);
   }, [initialPlayerName]);
@@ -57,31 +59,38 @@ export const GameBoard = ({ initialPlayerName }: GameBoardProps) => {
   useEffect(() => {
     const currentPlayer = players[currentPlayerIndex];
     
-    if (currentPlayer?.isAI) {
-      if (gamePhase === "selectInitialCards") {
-        setTimeout(() => {
-          const { newGrid, initialCardsSum } = selectInitialCardsForAI(currentPlayer);
+    if (currentPlayer?.isAI && gamePhase === "selectInitialCards") {
+      setTimeout(() => {
+        const { newGrid, initialCardsSum } = selectInitialCardsForAI(currentPlayer);
+        
+        setPlayers(prevPlayers => {
+          const newPlayers = [...prevPlayers];
+          newPlayers[currentPlayerIndex] = {
+            ...currentPlayer,
+            grid: newGrid,
+            initialCardsSum
+          };
+
+          // Vérifier si les deux joueurs ont sélectionné leurs cartes
+          const allPlayersSelected = newPlayers.every(p => p.initialCardsSum > 0);
           
-          setPlayers(prevPlayers => {
-            const newPlayers = [...prevPlayers];
-            newPlayers[currentPlayerIndex] = {
-              ...currentPlayer,
-              grid: newGrid,
-              initialCardsSum
-            };
-            return newPlayers;
-          });
+          if (allPlayersSelected) {
+            // Déterminer le premier joueur en fonction de la plus grande somme
+            const firstPlayerIndex = newPlayers[0].initialCardsSum > newPlayers[1].initialCardsSum ? 0 : 1;
+            setCurrentPlayerIndex(firstPlayerIndex);
+            setGamePhase("draw");
+            
+            toast({
+              title: "Premier joueur déterminé !",
+              description: `${newPlayers[firstPlayerIndex].name} commence avec la plus grande somme (${newPlayers[firstPlayerIndex].initialCardsSum}).`
+            });
+          }
           
-          setSelectedInitialCards(0);
-          setCurrentPlayerIndex(0);
-          setGamePhase("draw");
-          
-          toast({
-            title: "Tour de l'IA terminé",
-            description: "C'est à votre tour de jouer !"
-          });
-        }, 1000);
-      }
+          return newPlayers;
+        });
+        
+        setSelectedInitialCards(0);
+      }, 1000);
     }
   }, [currentPlayerIndex, gamePhase, players, toast]);
 
