@@ -45,13 +45,9 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
 
   const handleNewGame = async () => {
     try {
+      // Suppression uniquement des données de round_history
       await supabase
         .from('round_history')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-
-      await supabase
-        .from('game_scores')
         .delete()
         .neq('id', '00000000-0000-0000-0000-000000000000');
 
