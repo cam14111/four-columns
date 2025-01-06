@@ -20,27 +20,17 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
     // Déterminer le score minimum parmi tous les joueurs
     const minScore = Math.min(...baseScores.map(p => p.score));
     
-    // Identifier le joueur qui a terminé la manche (currentPlayerIndex)
+    // Identifier le joueur qui a terminé la manche (currentPlayer)
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     const currentPlayerScore = calculateVisibleCardsSum(currentPlayer);
 
     // Appliquer la règle du doublement uniquement au joueur qui termine la manche
     // si son score n'est pas le plus petit (ou à égalité avec le plus petit)
-    const finalPlayers = baseScores.map(player => {
-      if (player.id === currentPlayer.id && currentPlayerScore > minScore) {
-        return {
-          ...player,
-          score: player.score * 2
-        };
-      }
-      return player;
-    });
-
-    // Mettre à jour le state avec les scores finaux
-    setGameState(prev => ({
-      ...prev,
-      players: finalPlayers,
-      roundWinner: baseScores.find(p => p.score === minScore)
+    const finalPlayers = baseScores.map(player => ({
+      ...player,
+      score: player.id === currentPlayer.id && currentPlayerScore > minScore 
+        ? player.score * 2 
+        : player.score
     }));
 
     try {
@@ -56,32 +46,11 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
 
       // Sauvegarder les scores de la manche pour chaque joueur
       for (const player of finalPlayers) {
-        try {
-          // Vérifier si un score existe déjà pour ce joueur dans cette manche
-          const { data: existingScore } = await supabase
-            .from('round_history')
-            .select('id')
-            .eq('player_name', player.name)
-            .eq('round_number', currentRoundNumber)
-            .maybeSingle();
-
-          // Ne sauvegarder que si le score n'existe pas déjà
-          if (!existingScore) {
-            await supabase.from('round_history').insert({
-              player_name: player.name,
-              round_number: currentRoundNumber,
-              round_score: player.score
-            });
-          }
-        } catch (error) {
-          console.error('Error saving scores:', error);
-          toast({
-            title: "Erreur",
-            description: "Impossible de sauvegarder les scores",
-            variant: "destructive",
-          });
-          return;
-        }
+        await supabase.from('round_history').insert({
+          player_name: player.name,
+          round_number: currentRoundNumber,
+          round_score: player.score
+        });
       }
 
       // Vérifier si un joueur a atteint ou dépassé 100 points
@@ -111,6 +80,14 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
           }`
         });
       }
+
+      // Mettre à jour le state avec les scores finaux
+      setGameState(prev => ({
+        ...prev,
+        players: finalPlayers,
+        roundWinner: baseScores.find(p => p.score === minScore)
+      }));
+
     } catch (error) {
       console.error('Error handling game end:', error);
       toast({
