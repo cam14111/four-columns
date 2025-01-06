@@ -71,6 +71,7 @@ export const GameBoard = () => {
       ...prev,
       players: prev.players.map(player => ({
         ...player,
+        totalScore: player.totalScore + player.score,
         score: 0,
         grid: player.isAI ? aiGrid : humanGrid,
       })),
