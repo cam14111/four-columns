@@ -56,7 +56,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_and_lock_last_round_number: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          round_number: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

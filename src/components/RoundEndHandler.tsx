@@ -35,10 +35,8 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
 
     try {
       // Utiliser une transaction pour s'assurer de l'atomicité des opérations
-      const { data: { round_number: lastRoundNumber }, error: lastRoundError } = await supabase.rpc(
-        'get_and_lock_last_round_number',
-        {},
-        { head: true }
+      const { data, error: lastRoundError } = await supabase.rpc(
+        'get_and_lock_last_round_number'
       );
 
       if (lastRoundError) {
@@ -46,7 +44,12 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
         throw lastRoundError;
       }
 
-      const currentRoundNumber = (lastRoundNumber || 0) + 1;
+      // Vérifier que data existe et contient un round_number
+      if (!data || data.length === 0) {
+        throw new Error('No round number returned');
+      }
+
+      const currentRoundNumber = (data[0].round_number || 0) + 1;
 
       // Insérer les scores en une seule opération atomique
       const { error: insertError } = await supabase
