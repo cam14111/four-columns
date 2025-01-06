@@ -44,13 +44,28 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
 
       const currentRoundNumber = (lastRound?.round_number || 0) + 1;
 
-      // Sauvegarder les scores de la manche pour chaque joueur
-      for (const player of finalPlayers) {
-        await supabase.from('round_history').insert({
+      // Vérifier si des scores existent déjà pour cette manche
+      const { data: existingScores } = await supabase
+        .from('round_history')
+        .select('player_name')
+        .eq('round_number', currentRoundNumber);
+
+      // Ne sauvegarder que si aucun score n'existe pour cette manche
+      if (!existingScores || existingScores.length === 0) {
+        // Sauvegarder les scores de la manche pour chaque joueur
+        const roundScores = finalPlayers.map(player => ({
           player_name: player.name,
           round_number: currentRoundNumber,
           round_score: player.score
-        });
+        }));
+
+        const { error } = await supabase
+          .from('round_history')
+          .insert(roundScores);
+
+        if (error) {
+          throw error;
+        }
       }
 
       // Vérifier si un joueur a atteint ou dépassé 100 points
