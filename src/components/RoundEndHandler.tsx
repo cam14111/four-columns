@@ -24,7 +24,8 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     const currentPlayerScore = calculateVisibleCardsSum(currentPlayer);
 
-    // Appliquer la règle du doublement si le joueur qui termine n'a pas le plus petit score
+    // Appliquer la règle du doublement uniquement au joueur qui termine la manche
+    // si son score n'est pas le plus petit (ou à égalité avec le plus petit)
     const finalPlayers = baseScores.map(player => {
       if (player.id === currentPlayer.id && currentPlayerScore > minScore) {
         return {
