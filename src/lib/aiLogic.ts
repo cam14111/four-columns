@@ -1,21 +1,32 @@
 import { Card, Player } from "./types";
 
 export const selectInitialCardsForAI = (player: Player): { newGrid: Card[], initialCardsSum: number } => {
-  // Trouver les deux cartes avec les plus petites valeurs
-  const hiddenCards = player.grid
+  // Get all hidden cards indices
+  const hiddenCardsIndices = player.grid
     .map((card, index) => ({ card, index }))
-    .filter(item => item.card.state === "hidden")
-    .sort((a, b) => a.card.value - b.card.value);
+    .filter(item => item.card?.state === "hidden")
+    .map(item => item.index);
+
+  // Randomly select two indices
+  const selectedIndices: number[] = [];
+  while (selectedIndices.length < 2 && hiddenCardsIndices.length > 0) {
+    const randomIndex = Math.floor(Math.random() * hiddenCardsIndices.length);
+    const cardIndex = hiddenCardsIndices[randomIndex];
+    selectedIndices.push(cardIndex);
+    hiddenCardsIndices.splice(randomIndex, 1);
+  }
 
   const newGrid = [...player.grid];
   let sum = 0;
 
-  // Révéler les deux cartes avec les plus petites valeurs
-  for (let i = 0; i < 2 && i < hiddenCards.length; i++) {
-    const cardInfo = hiddenCards[i];
-    newGrid[cardInfo.index] = { ...cardInfo.card, state: "visible" };
-    sum += cardInfo.card.value;
-  }
+  // Reveal the randomly selected cards
+  selectedIndices.forEach(index => {
+    const card = newGrid[index];
+    if (card) {
+      newGrid[index] = { ...card, state: "visible" };
+      sum += card.value;
+    }
+  });
 
   return { newGrid, initialCardsSum: sum };
 };
