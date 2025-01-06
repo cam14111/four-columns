@@ -36,7 +36,7 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
 
     try {
       // Utiliser une transaction pour s'assurer de l'atomicité des opérations
-      const { data, error: lastRoundError } = await supabase.rpc(
+      const { data: lastRoundData, error: lastRoundError } = await supabase.rpc(
         'get_and_lock_last_round_number'
       );
 
@@ -46,30 +46,31 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
       }
 
       // Vérifier que data existe et contient un round_number
-      if (!data || data.length === 0) {
+      if (!lastRoundData || lastRoundData.length === 0) {
         throw new Error('No round number returned');
       }
 
-      const currentRoundNumber = data[0].round_number + 1;
+      const currentRoundNumber = lastRoundData[0].round_number + 1;
 
-      // Utiliser upsert avec la bonne syntaxe
-      const { error: insertError } = await supabase
-        .from('round_history')
-        .upsert(
-          finalPlayers.map(player => ({
+      // Créer un tableau de promesses pour tous les upserts
+      const upsertPromises = finalPlayers.map(player => 
+        supabase
+          .from('round_history')
+          .upsert({
             player_name: player.name,
             round_number: currentRoundNumber,
             round_score: player.score
-          })),
-          {
-            onConflict: 'player_name,round_number',
-            ignoreDuplicates: false
-          }
-        );
+          })
+      );
 
-      if (insertError) {
-        console.error('Error inserting scores:', insertError);
-        throw insertError;
+      // Attendre que tous les upserts soient terminés
+      const results = await Promise.all(upsertPromises);
+
+      // Vérifier s'il y a eu des erreurs
+      const errors = results.filter(result => result.error);
+      if (errors.length > 0) {
+        console.error('Errors inserting scores:', errors);
+        throw new Error('Failed to insert some scores');
       }
 
       console.log(`Scores sauvegardés pour la manche ${currentRoundNumber}`);
