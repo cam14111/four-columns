@@ -23,12 +23,13 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
     // Identifier le joueur qui a terminé la manche (currentPlayer)
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     const currentPlayerScore = calculateVisibleCardsSum(currentPlayer);
+    const hasFinishedRound = currentPlayer.grid.every(card => card === null || card.state === "visible");
 
     // Appliquer la règle du doublement uniquement au joueur qui termine la manche
     // si son score n'est pas le plus petit (ou à égalité avec le plus petit)
     const finalPlayers = baseScores.map(player => ({
       ...player,
-      score: player.id === currentPlayer.id && currentPlayerScore > minScore 
+      score: player.id === currentPlayer.id && hasFinishedRound && currentPlayerScore > minScore 
         ? player.score * 2 
         : player.score
     }));
@@ -51,16 +52,15 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
 
       const currentRoundNumber = data[0].round_number + 1;
 
-      // Insérer les scores en une seule opération atomique
+      // Insérer les scores en une seule opération
       const { error: insertError } = await supabase
         .from('round_history')
-        .upsert(
+        .insert(
           finalPlayers.map(player => ({
             player_name: player.name,
             round_number: currentRoundNumber,
             round_score: player.score
-          })),
-          { onConflict: 'player_name,round_number' }
+          }))
         );
 
       if (insertError) {
@@ -88,7 +88,7 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
       } else {
         // Message pour le vainqueur de la manche
         const roundWinner = baseScores.find(p => p.score === minScore);
-        const currentPlayerDoubled = currentPlayer.grid.every(card => card === null || card.state === "visible") && currentPlayerScore > minScore;
+        const currentPlayerDoubled = hasFinishedRound && currentPlayerScore > minScore;
         
         toast({
           title: "Fin de la manche !",
