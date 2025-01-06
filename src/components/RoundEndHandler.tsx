@@ -18,23 +18,30 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
       score: calculateVisibleCardsSum(player)
     }));
 
-    // Déterminer le vainqueur de la manche
+    // Déterminer le score minimum de la manche
     const minScore = Math.min(...updatedPlayers.map(p => p.score));
-    const roundWinners = updatedPlayers.filter(p => p.score === minScore);
-
-    // En cas d'égalité, le joueur qui a révélé sa dernière carte en premier gagne
-    let finalRoundWinner = roundWinners[0];
-    if (roundWinners.length > 1) {
-      const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-      finalRoundWinner = currentPlayer.id === roundWinners[0].id ? 
-        roundWinners[0] : roundWinners[1];
-    }
+    
+    // Identifier le joueur qui a terminé la manche (currentPlayerIndex)
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    const currentPlayerScore = calculateVisibleCardsSum(currentPlayer);
+    
+    // Appliquer la règle du doublement du score si nécessaire
+    const finalPlayers = updatedPlayers.map(player => {
+      if (player.id === currentPlayer.id && currentPlayerScore > minScore) {
+        // Le joueur qui termine n'a pas le plus petit score, son score est doublé
+        return {
+          ...player,
+          score: player.score * 2
+        };
+      }
+      return player;
+    });
 
     // Mettre à jour le state avec les scores finaux
     setGameState(prev => ({
       ...prev,
-      players: updatedPlayers,
-      roundWinner: finalRoundWinner
+      players: finalPlayers,
+      roundWinner: finalPlayers.find(p => p.score === minScore)
     }));
 
     try {
@@ -49,7 +56,7 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
       const currentRoundNumber = (lastRound?.round_number || 0) + 1;
 
       // Sauvegarder les scores de la manche pour chaque joueur
-      for (const player of updatedPlayers) {
+      for (const player of finalPlayers) {
         try {
           // Vérifier si un score existe déjà pour ce joueur dans cette manche
           const { data: existingScore } = await supabase
@@ -85,13 +92,13 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
       }
 
       // Vérifier si un joueur a atteint ou dépassé 100 points
-      const playersOver100 = updatedPlayers.filter(player => 
+      const playersOver100 = finalPlayers.filter(player => 
         (player.totalScore + player.score) >= 100
       );
 
       if (playersOver100.length > 0) {
         // Le(s) joueur(s) qui n'ont pas atteint 100 points sont les gagnants
-        const winners = updatedPlayers.filter(player => 
+        const winners = finalPlayers.filter(player => 
           (player.totalScore + player.score) < 100
         );
 
@@ -101,9 +108,14 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
         });
       } else {
         // Message pour le vainqueur de la manche
+        const roundWinner = finalPlayers.find(p => p.score === minScore);
+        const currentPlayerDoubled = currentPlayerScore > minScore;
+        
         toast({
           title: "Fin de la manche !",
-          description: `${finalRoundWinner.name} remporte la manche avec ${minScore} points${roundWinners.length > 1 ? ' (premier à avoir retourné toutes ses cartes)' : ''}.`
+          description: `${roundWinner?.name} remporte la manche avec ${minScore} points.${
+            currentPlayerDoubled ? ` ${currentPlayer.name} a terminé la manche mais n'avait pas le plus petit score : son score est doublé (${currentPlayerScore} → ${currentPlayerScore * 2}).` : ''
+          }`
         });
       }
     } catch (error) {
