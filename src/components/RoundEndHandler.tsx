@@ -35,37 +35,48 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
 
     try {
       // Récupérer le dernier numéro de manche
-      const { data: lastRound } = await supabase
+      const { data: lastRound, error: lastRoundError } = await supabase
         .from('round_history')
         .select('round_number')
         .order('round_number', { ascending: false })
         .limit(1)
         .maybeSingle();
 
+      if (lastRoundError) {
+        throw lastRoundError;
+      }
+
       const currentRoundNumber = (lastRound?.round_number || 0) + 1;
 
-      // Vérifier si des scores existent déjà pour cette manche
-      const { data: existingScores } = await supabase
+      // Vérifier si des scores existent déjà pour cette manche et ces joueurs
+      const { data: existingScores, error: existingScoresError } = await supabase
         .from('round_history')
-        .select('player_name')
+        .select('player_name, round_number')
         .eq('round_number', currentRoundNumber);
+
+      if (existingScoresError) {
+        throw existingScoresError;
+      }
 
       // Ne sauvegarder que si aucun score n'existe pour cette manche
       if (!existingScores || existingScores.length === 0) {
-        // Sauvegarder les scores de la manche pour chaque joueur
         const roundScores = finalPlayers.map(player => ({
           player_name: player.name,
           round_number: currentRoundNumber,
           round_score: player.score
         }));
 
-        const { error } = await supabase
+        const { error: insertError } = await supabase
           .from('round_history')
           .insert(roundScores);
 
-        if (error) {
-          throw error;
+        if (insertError) {
+          throw insertError;
         }
+
+        console.log(`Scores sauvegardés pour la manche ${currentRoundNumber}`);
+      } else {
+        console.log(`Les scores pour la manche ${currentRoundNumber} existent déjà`);
       }
 
       // Vérifier si un joueur a atteint ou dépassé 100 points
