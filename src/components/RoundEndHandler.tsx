@@ -49,7 +49,7 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
         throw new Error('No round number returned');
       }
 
-      const currentRoundNumber = (data[0].round_number || 0) + 1;
+      const currentRoundNumber = data[0].round_number + 1;
 
       // Insérer les scores en une seule opération atomique
       const { error: insertError } = await supabase
