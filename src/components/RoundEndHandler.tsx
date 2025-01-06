@@ -35,7 +35,7 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
     }));
 
     try {
-      // Utiliser une transaction pour s'assurer de l'atomicité des opérations
+      // Obtenir le dernier numéro de manche
       const { data: lastRoundData, error: lastRoundError } = await supabase.rpc(
         'get_and_lock_last_round_number'
       );
@@ -45,7 +45,6 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
         throw lastRoundError;
       }
 
-      // Vérifier que data existe et contient un round_number
       if (!lastRoundData || lastRoundData.length === 0) {
         throw new Error('No round number returned');
       }
@@ -56,11 +55,17 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
       const upsertPromises = finalPlayers.map(player => 
         supabase
           .from('round_history')
-          .upsert({
-            player_name: player.name,
-            round_number: currentRoundNumber,
-            round_score: player.score
-          })
+          .upsert(
+            {
+              player_name: player.name,
+              round_number: currentRoundNumber,
+              round_score: player.score
+            },
+            {
+              onConflict: 'player_name,round_number',
+              ignoreDuplicates: false
+            }
+          )
       );
 
       // Attendre que tous les upserts soient terminés
