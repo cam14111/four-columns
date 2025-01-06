@@ -111,13 +111,12 @@ export const chooseBestHiddenCard = (currentPlayer: Player): number => {
   // Vérifier d'abord les colonnes prometteuses
   for (let col = 0; col < 4; col++) {
     if (isColumnPromising(currentPlayer.grid, col)) {
-      const columnCards = currentPlayer.grid.filter((card, index) => 
-        index % 4 === col && card !== null && card.state === "hidden"
+      // Trouver une carte cachée dans cette colonne
+      const hiddenCardIndex = currentPlayer.grid.findIndex((card, index) => 
+        index % 4 === col && card && card.state === "hidden"
       );
-      if (columnCards.length > 0) {
-        return currentPlayer.grid.findIndex((card, index) => 
-          index % 4 === col && card && card.state === "hidden"
-        );
+      if (hiddenCardIndex !== -1) {
+        return hiddenCardIndex;
       }
     }
   }
