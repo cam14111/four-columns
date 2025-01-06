@@ -1,7 +1,6 @@
 import { GameState, Player } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { saveGameScore } from "@/lib/scoreService";
 
 interface RoundEndHandlerProps {
   gameState: GameState;
@@ -73,12 +72,6 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
               round_number: currentRoundNumber,
               round_score: player.score
             });
-
-            await saveGameScore(
-              player.name,
-              player.score,
-              player.totalScore + player.score
-            );
           }
         } catch (error) {
           console.error('Error saving scores:', error);

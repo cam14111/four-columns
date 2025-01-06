@@ -27,30 +27,6 @@ export type Database = {
         }
         Relationships: []
       }
-      game_scores: {
-        Row: {
-          created_at: string
-          id: string
-          player_name: string
-          round_score: number
-          total_score: number
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          player_name: string
-          round_score: number
-          total_score: number
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          player_name?: string
-          round_score?: number
-          total_score?: number
-        }
-        Relationships: []
-      }
       round_history: {
         Row: {
           created_at: string
