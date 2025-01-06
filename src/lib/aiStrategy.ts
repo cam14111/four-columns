@@ -11,7 +11,7 @@ const canImproveGrid = (card: Card, grid: (Card | null)[]): boolean => {
   return visibleCards.some(c => c.value > card.value);
 };
 
-// Trouve la meilleure carte à remplacer dans la grille
+// Trouve la meilleure carte à remplacer dans la grille (uniquement parmi les cartes visibles)
 const findBestCardToReplace = (newCard: Card, grid: (Card | null)[]): number => {
   let highestValue = -Infinity;
   let bestIndex = -1;
@@ -26,21 +26,20 @@ const findBestCardToReplace = (newCard: Card, grid: (Card | null)[]): number => 
   return bestIndex;
 };
 
-// Évalue si une colonne est prometteuse pour être complétée
+// Évalue si une colonne est prometteuse pour être complétée (uniquement avec les cartes visibles)
 const isColumnPromising = (grid: (Card | null)[], columnIndex: number): boolean => {
-  const columnCards = grid.filter((_, index) => index % 4 === columnIndex);
-  const visibleCards = columnCards.filter(card => 
-    card !== null && card.state === "visible"
-  ) as Card[];
-
+  const columnCards = grid.filter((card, index) => 
+    index % 4 === columnIndex && card !== null && card.state === "visible"
+  );
+  
   // Si on a déjà 2 cartes visibles dans la colonne
-  if (visibleCards.length === 2) {
+  if (columnCards.length === 2) {
     // Et qu'elles ont la même valeur
-    if (visibleCards[0].value === visibleCards[1].value) {
+    if (columnCards[0].value === columnCards[1].value) {
       return true;
     }
     // Ou qu'elles sont toutes les deux basses
-    if (visibleCards.every(card => isGoodCard(card.value))) {
+    if (columnCards.every(card => isGoodCard(card.value))) {
       return true;
     }
   }
@@ -48,24 +47,8 @@ const isColumnPromising = (grid: (Card | null)[], columnIndex: number): boolean 
   return false;
 };
 
-// Trouve la meilleure carte cachée à révéler
-const findBestHiddenCardToReveal = (grid: (Card | null)[]): number => {
-  // Vérifier d'abord les colonnes prometteuses
-  for (let col = 0; col < 4; col++) {
-    if (isColumnPromising(grid, col)) {
-      const columnCards = grid.filter((card, index) => 
-        index % 4 === col && card !== null
-      );
-      const hiddenCardIndex = columnCards.findIndex(card => 
-        card && card.state === "hidden"
-      );
-      if (hiddenCardIndex !== -1) {
-        return hiddenCardIndex * 4 + col;
-      }
-    }
-  }
-
-  // Si aucune colonne n'est prometteuse, choisir une carte au hasard
+// Trouve une carte cachée à révéler de manière aléatoire
+const findRandomHiddenCard = (grid: (Card | null)[]): number => {
   const hiddenCards = grid
     .map((card, index) => ({ card, index }))
     .filter(({ card }) => card && card.state === "hidden");
@@ -78,7 +61,7 @@ const findBestHiddenCardToReveal = (grid: (Card | null)[]): number => {
   return -1;
 };
 
-// Décide si l'IA doit piocher dans la défausse
+// Décide si l'IA doit piocher dans la défausse (la carte est toujours visible)
 export const shouldDrawFromDiscard = (
   discardCard: Card,
   currentPlayer: Player
@@ -88,12 +71,13 @@ export const shouldDrawFromDiscard = (
     return true;
   }
 
-  // Prendre la carte si elle peut améliorer la grille
+  // Prendre la carte si elle peut améliorer la grille visible
   if (canImproveGrid(discardCard, currentPlayer.grid)) {
     return true;
   }
 
-  return false;
+  // Sinon, décision aléatoire avec une préférence pour ne pas prendre (30% de chances de prendre)
+  return Math.random() < 0.3;
 };
 
 // Décide si l'IA doit garder la carte piochée
@@ -113,13 +97,31 @@ export const shouldKeepCard = (
   }
 
   // Garder la carte si elle est meilleure que la pire carte visible
+  // ou de manière aléatoire avec une préférence pour garder (70% de chances)
+  const shouldKeep = drawnCard.value < cardToReplace.value || Math.random() < 0.7;
+  
   return {
-    keep: drawnCard.value < cardToReplace.value,
+    keep: shouldKeep,
     replaceIndex: bestCardToReplaceIndex
   };
 };
 
-// Trouve la meilleure carte cachée à révéler
+// Trouve une carte cachée à révéler
 export const chooseBestHiddenCard = (currentPlayer: Player): number => {
-  return findBestHiddenCardToReveal(currentPlayer.grid);
+  // Vérifier d'abord les colonnes prometteuses
+  for (let col = 0; col < 4; col++) {
+    if (isColumnPromising(currentPlayer.grid, col)) {
+      const columnCards = currentPlayer.grid.filter((card, index) => 
+        index % 4 === col && card !== null && card.state === "hidden"
+      );
+      if (columnCards.length > 0) {
+        return currentPlayer.grid.findIndex((card, index) => 
+          index % 4 === col && card && card.state === "hidden"
+        );
+      }
+    }
+  }
+
+  // Si aucune colonne n'est prometteuse, choisir une carte au hasard
+  return findRandomHiddenCard(currentPlayer.grid);
 };
