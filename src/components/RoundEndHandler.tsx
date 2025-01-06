@@ -88,7 +88,7 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
       } else {
         // Message pour le vainqueur de la manche
         const roundWinner = baseScores.find(p => p.score === minScore);
-        const currentPlayerDoubled = currentPlayerScore > minScore;
+        const currentPlayerDoubled = currentPlayer.id === currentPlayer.id && currentPlayerScore > minScore;
         
         toast({
           title: "Fin de la manche !",
