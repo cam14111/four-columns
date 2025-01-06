@@ -45,6 +45,7 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
 
   const handleNewGame = async () => {
     try {
+      // Suppression uniquement des données de round_history
       await supabase
         .from('round_history')
         .delete()
@@ -66,16 +67,6 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
         variant: "destructive",
       });
     }
-  };
-
-  const calculateTotalScore = (playerName: string): number => {
-    if (!roundHistory) return 0;
-    
-    const completedRounds = roundHistory
-      .filter(round => round.player_name === playerName)
-      .sort((a, b) => a.round_number - b.round_number);
-    
-    return completedRounds.reduce((total, round) => total + round.round_score, 0);
   };
 
   const isGameOver = () => {
@@ -107,14 +98,7 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
     // Invalider la requête pour rafraîchir l'historique après la continuation de la partie
     queryClient.invalidateQueries({ queryKey: ['roundHistory'] });
     
-    // Mettre à jour les scores totaux des joueurs avant de continuer
-    const updatedPlayers = players.map(player => ({
-      ...player,
-      totalScore: calculateTotalScore(player.name)
-    }));
-    
     onContinueGame();
-    
     toast({
       title: "Nouvelle manche",
       description: "Les scores de la manche précédente ont été ajoutés au total"
@@ -136,6 +120,16 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
       'bg-[#E5DEFF]', // Soft Purple
     ];
     return colors[index % colors.length];
+  };
+
+  const calculateTotalScore = (playerName: string): number => {
+    if (!roundHistory) return 0;
+    
+    const completedRounds = roundHistory
+      .filter(round => round.player_name === playerName)
+      .sort((a, b) => a.round_number - b.round_number);
+    
+    return completedRounds.reduce((total, round) => total + round.round_score, 0);
   };
 
   return (
