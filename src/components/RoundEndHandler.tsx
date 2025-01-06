@@ -52,15 +52,19 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
 
       const currentRoundNumber = data[0].round_number + 1;
 
-      // Insérer les scores en une seule opération
+      // Utiliser upsert avec la bonne syntaxe
       const { error: insertError } = await supabase
         .from('round_history')
-        .insert(
+        .upsert(
           finalPlayers.map(player => ({
             player_name: player.name,
             round_number: currentRoundNumber,
             round_score: player.score
-          }))
+          })),
+          {
+            onConflict: 'player_name,round_number',
+            ignoreDuplicates: false
+          }
         );
 
       if (insertError) {
