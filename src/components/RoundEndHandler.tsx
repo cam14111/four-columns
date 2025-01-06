@@ -34,50 +34,38 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
     }));
 
     try {
-      // Récupérer le dernier numéro de manche
-      const { data: lastRound, error: lastRoundError } = await supabase
-        .from('round_history')
-        .select('round_number')
-        .order('round_number', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Utiliser une transaction pour s'assurer de l'atomicité des opérations
+      const { data: { round_number: lastRoundNumber }, error: lastRoundError } = await supabase.rpc(
+        'get_and_lock_last_round_number',
+        {},
+        { head: true }
+      );
 
       if (lastRoundError) {
+        console.error('Error getting last round number:', lastRoundError);
         throw lastRoundError;
       }
 
-      const currentRoundNumber = (lastRound?.round_number || 0) + 1;
+      const currentRoundNumber = (lastRoundNumber || 0) + 1;
 
-      // Vérifier si des scores existent déjà pour cette manche et ces joueurs
-      const { data: existingScores, error: existingScoresError } = await supabase
+      // Insérer les scores en une seule opération atomique
+      const { error: insertError } = await supabase
         .from('round_history')
-        .select('player_name, round_number')
-        .eq('round_number', currentRoundNumber);
+        .upsert(
+          finalPlayers.map(player => ({
+            player_name: player.name,
+            round_number: currentRoundNumber,
+            round_score: player.score
+          })),
+          { onConflict: 'player_name,round_number' }
+        );
 
-      if (existingScoresError) {
-        throw existingScoresError;
+      if (insertError) {
+        console.error('Error inserting scores:', insertError);
+        throw insertError;
       }
 
-      // Ne sauvegarder que si aucun score n'existe pour cette manche
-      if (!existingScores || existingScores.length === 0) {
-        const roundScores = finalPlayers.map(player => ({
-          player_name: player.name,
-          round_number: currentRoundNumber,
-          round_score: player.score
-        }));
-
-        const { error: insertError } = await supabase
-          .from('round_history')
-          .insert(roundScores);
-
-        if (insertError) {
-          throw insertError;
-        }
-
-        console.log(`Scores sauvegardés pour la manche ${currentRoundNumber}`);
-      } else {
-        console.log(`Les scores pour la manche ${currentRoundNumber} existent déjà`);
-      }
+      console.log(`Scores sauvegardés pour la manche ${currentRoundNumber}`);
 
       // Vérifier si un joueur a atteint ou dépassé 100 points
       const playersOver100 = finalPlayers.filter(player => 
