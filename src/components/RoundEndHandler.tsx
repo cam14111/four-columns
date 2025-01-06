@@ -11,23 +11,22 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
   const { toast } = useToast();
 
   const handleGameEnd = async () => {
-    // Calculer les scores finaux pour tous les joueurs
-    const updatedPlayers = gameState.players.map(player => ({
+    // Calculer les scores de base pour tous les joueurs
+    const baseScores = gameState.players.map(player => ({
       ...player,
       score: calculateVisibleCardsSum(player)
     }));
 
-    // Déterminer le score minimum de la manche
-    const minScore = Math.min(...updatedPlayers.map(p => p.score));
+    // Déterminer le score minimum parmi tous les joueurs
+    const minScore = Math.min(...baseScores.map(p => p.score));
     
     // Identifier le joueur qui a terminé la manche (currentPlayerIndex)
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     const currentPlayerScore = calculateVisibleCardsSum(currentPlayer);
-    
-    // Appliquer la règle du doublement du score si nécessaire
-    const finalPlayers = updatedPlayers.map(player => {
+
+    // Appliquer la règle du doublement si le joueur qui termine n'a pas le plus petit score
+    const finalPlayers = baseScores.map(player => {
       if (player.id === currentPlayer.id && currentPlayerScore > minScore) {
-        // Le joueur qui termine n'a pas le plus petit score, son score est doublé
         return {
           ...player,
           score: player.score * 2
@@ -40,7 +39,7 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
     setGameState(prev => ({
       ...prev,
       players: finalPlayers,
-      roundWinner: finalPlayers.find(p => p.score === minScore)
+      roundWinner: baseScores.find(p => p.score === minScore)
     }));
 
     try {
@@ -101,7 +100,7 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
         });
       } else {
         // Message pour le vainqueur de la manche
-        const roundWinner = finalPlayers.find(p => p.score === minScore);
+        const roundWinner = baseScores.find(p => p.score === minScore);
         const currentPlayerDoubled = currentPlayerScore > minScore;
         
         toast({
