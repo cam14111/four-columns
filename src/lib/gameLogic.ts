@@ -11,7 +11,10 @@ export const createDeck = (): Card[] => {
   const values: CardValue[] = [-2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
   
   values.forEach((value) => {
-    const frequency = value === -2 ? 5 : 10;
+    const frequency = value === -2 ? 5 : 
+                     value === -1 ? 10 : 
+                     value === 0 ? 15 : 
+                     10;
     
     for (let i = 0; i < frequency; i++) {
       deck.push({
