@@ -23,7 +23,7 @@ export const GameControls = ({
         Tour de {currentPlayer.name}
       </div>
       <div 
-        className={`w-16 h-24 md:w-20 md:h-28 cursor-pointer ${disabled || gameState.gamePhase !== "draw" ? 'opacity-50 cursor-not-allowed' : ''}`}
+        className={`relative ${isMobile ? 'scale-75 origin-top-left' : ''} w-16 h-24 md:w-20 md:h-28 cursor-pointer ${disabled || gameState.gamePhase !== "draw" ? 'opacity-50 cursor-not-allowed' : ''}`}
         onClick={() => {
           if (!disabled && gameState.gamePhase === "draw") {
             onDrawFromDeck();

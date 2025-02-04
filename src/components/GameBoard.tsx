@@ -127,11 +127,12 @@ export const GameBoard = () => {
 
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
   const humanPlayer = gameState.players[0];
+  const aiPlayer = gameState.players[1];
 
   return (
     <div className="min-h-screen bg-game-background p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-4 md:space-y-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-center text-game-primary">Skyjo</h1>
+        <h1 className="text-xl md:text-3xl font-bold text-center text-game-primary">Skyjo</h1>
         
         {gameState.gamePhase === "selectInitialCards" && !gameState.players[gameState.currentPlayerIndex].isAI && (
           <InitialCardsSelection 
@@ -141,16 +142,18 @@ export const GameBoard = () => {
         )}
         
         {isMobile ? (
-          // Mobile Layout
           <div className="space-y-4">
-            {/* Current Score Display */}
             <div className="bg-white rounded-lg p-2 shadow-sm">
-              <span className="font-medium text-game-primary">
-                Score actuel : {calculateVisibleCardsSum(humanPlayer)}
-              </span>
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-game-primary">
+                  Score actuel : {calculateVisibleCardsSum(humanPlayer)}
+                </span>
+                <span className="font-medium text-game-primary">
+                  IA : {calculateVisibleCardsSum(aiPlayer)}
+                </span>
+              </div>
             </div>
 
-            {/* Game Controls and Discard Pile in a row */}
             <div className="flex justify-center gap-4 items-start">
               <GameControls
                 gameState={gameState}
@@ -172,7 +175,6 @@ export const GameBoard = () => {
               />
             </div>
 
-            {/* Player Grids */}
             <div className="space-y-4">
               {gameState.players.map((player, index) => (
                 <PlayerGrid
