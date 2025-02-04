@@ -1,5 +1,6 @@
 import { GameState, Player } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { useErrorHandler } from "@/hooks/use-error-handler";
 import { supabase } from "@/integrations/supabase/client";
 
 interface RoundEndHandlerProps {
@@ -9,24 +10,19 @@ interface RoundEndHandlerProps {
 
 export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerProps) => {
   const { toast } = useToast();
+  const { handleError } = useErrorHandler();
 
   const handleGameEnd = async () => {
-    // Calculer les scores de base pour tous les joueurs
     const baseScores = gameState.players.map(player => ({
       ...player,
       score: calculateVisibleCardsSum(player)
     }));
 
-    // Déterminer le score minimum parmi tous les joueurs
     const minScore = Math.min(...baseScores.map(p => p.score));
-    
-    // Identifier le joueur qui a terminé la manche (currentPlayer)
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     const currentPlayerScore = calculateVisibleCardsSum(currentPlayer);
     const hasFinishedRound = currentPlayer.grid.every(card => card === null || card.state === "visible");
 
-    // Appliquer la règle du doublement uniquement au joueur qui termine la manche
-    // si son score n'est pas le plus petit (ou à égalité avec le plus petit)
     const finalPlayers = baseScores.map(player => ({
       ...player,
       score: player.id === currentPlayer.id && hasFinishedRound && currentPlayerScore > minScore 
@@ -35,23 +31,20 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
     }));
 
     try {
-      // Obtenir le dernier numéro de manche
       const { data: lastRoundData, error: lastRoundError } = await supabase.rpc(
         'get_and_lock_last_round_number'
       );
 
       if (lastRoundError) {
-        console.error('Error getting last round number:', lastRoundError);
         throw lastRoundError;
       }
 
       if (!lastRoundData || lastRoundData.length === 0) {
-        throw new Error('No round number returned');
+        throw new Error('Aucun numéro de manche retourné');
       }
 
       const currentRoundNumber = lastRoundData[0].round_number + 1;
 
-      // Créer un tableau de promesses pour tous les upserts
       const upsertPromises = finalPlayers.map(player => 
         supabase
           .from('round_history')
@@ -68,25 +61,18 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
           )
       );
 
-      // Attendre que tous les upserts soient terminés
       const results = await Promise.all(upsertPromises);
-
-      // Vérifier s'il y a eu des erreurs
       const errors = results.filter(result => result.error);
+      
       if (errors.length > 0) {
-        console.error('Errors inserting scores:', errors);
-        throw new Error('Failed to insert some scores');
+        throw new Error('Erreur lors de la sauvegarde des scores');
       }
 
-      console.log(`Scores sauvegardés pour la manche ${currentRoundNumber}`);
-
-      // Vérifier si un joueur a atteint ou dépassé 100 points
       const playersOver100 = finalPlayers.filter(player => 
         (player.totalScore + player.score) >= 100
       );
 
       if (playersOver100.length > 0) {
-        // Le(s) joueur(s) qui n'ont pas atteint 100 points sont les gagnants
         const winners = finalPlayers.filter(player => 
           (player.totalScore + player.score) < 100
         );
@@ -96,7 +82,6 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
           description: `${winners.map(w => w.name).join(" et ")} ${winners.length > 1 ? 'remportent' : 'remporte'} la partie ! (${playersOver100.map(p => p.name).join(" et ")} ${playersOver100.length > 1 ? 'ont' : 'a'} dépassé 100 points)`
         });
       } else {
-        // Message pour le vainqueur de la manche
         const roundWinner = baseScores.find(p => p.score === minScore);
         const currentPlayerDoubled = hasFinishedRound && currentPlayerScore > minScore;
         
@@ -108,7 +93,6 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
         });
       }
 
-      // Mettre à jour le state avec les scores finaux
       setGameState(prev => ({
         ...prev,
         players: finalPlayers,
@@ -116,12 +100,7 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
       }));
 
     } catch (error) {
-      console.error('Error handling game end:', error);
-      toast({
-        title: "Erreur",
-        description: "Une erreur est survenue lors de la fin de partie",
-        variant: "destructive",
-      });
+      handleError(error);
     }
   };
 
