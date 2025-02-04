@@ -13,9 +13,6 @@ export const DiscardPile = ({ discardPile, onDrawFromDiscard, disabled }: Discar
   
   return (
     <div className="space-y-2 md:space-y-4">
-      <div className="text-base md:text-lg font-medium text-game-primary">
-        Défausse
-      </div>
       <div 
         className="relative h-24 md:h-28"
         onClick={() => {

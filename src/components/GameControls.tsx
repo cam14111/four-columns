@@ -19,9 +19,6 @@ export const GameControls = ({
   
   return (
     <div className="space-y-2 md:space-y-4">
-      <div className="text-base md:text-lg font-medium text-game-primary">
-        Tour de {currentPlayer.name}
-      </div>
       <div 
         className={`relative ${isMobile ? 'scale-75 origin-top-left' : ''} w-16 h-24 md:w-20 md:h-28 cursor-pointer ${disabled || gameState.gamePhase !== "draw" ? 'opacity-50 cursor-not-allowed' : ''}`}
         onClick={() => {
