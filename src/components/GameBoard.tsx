@@ -132,7 +132,7 @@ export const GameBoard = () => {
   return (
     <div className="min-h-screen bg-game-background p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-4 md:space-y-8">
-        <h1 className="text-xl md:text-3xl font-bold text-center text-game-primary">Skyjo</h1>
+        <h1 className="hidden md:block text-3xl font-bold text-center text-game-primary">Skyjo</h1>
         
         {gameState.gamePhase === "selectInitialCards" && !gameState.players[gameState.currentPlayerIndex].isAI && (
           <InitialCardsSelection 

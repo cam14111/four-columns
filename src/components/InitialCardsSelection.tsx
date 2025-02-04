@@ -1,4 +1,4 @@
-import { Card as CardType, Player } from "@/lib/types";
+import { Player } from "@/lib/types";
 
 interface InitialCardsSelectionProps {
   currentPlayer: Player;
@@ -8,7 +8,7 @@ interface InitialCardsSelectionProps {
 export const InitialCardsSelection = ({ currentPlayer, selectedInitialCards }: InitialCardsSelectionProps) => {
   return (
     <div className="text-center text-lg text-game-primary mb-4">
-      {`${currentPlayer.name}, sélectionnez ${2 - selectedInitialCards} carte${selectedInitialCards === 1 ? '' : 's'}`}
+      {`Tour de ${currentPlayer.name}, sélectionnez ${2 - selectedInitialCards} carte${selectedInitialCards === 1 ? '' : 's'}`}
     </div>
   );
 };
