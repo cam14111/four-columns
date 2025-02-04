@@ -12,6 +12,7 @@ import { PlayerNameForm } from "./PlayerNameForm";
 import { useRoundEndHandler } from "./RoundEndHandler";
 import { createDeck, dealInitialCards } from "@/lib/gameLogic";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Player } from "@/lib/types";
 
 export const GameBoard = () => {
   const isMobile = useIsMobile();
