@@ -25,7 +25,7 @@ export const Card = ({ card, onClick, className, disabled }: CardProps) => {
   return (
     <div
       className={cn(
-        "relative w-12 h-16 md:w-20 md:h-28 cursor-pointer perspective-1000",
+        "relative w-14 h-20 md:w-20 md:h-28 cursor-pointer perspective-1000",
         disabled && "cursor-default opacity-70",
         className
       )}
