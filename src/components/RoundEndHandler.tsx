@@ -45,18 +45,20 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
         throw lastRoundError;
       }
 
-      // Vérifier si la manche actuelle a déjà été enregistrée
       const currentRoundNumber = lastRoundData[0].round_number + 1;
+
+      // Vérifier si la manche actuelle a déjà été enregistrée
       const { data: existingRounds, error: existingRoundsError } = await supabase
         .from('round_history')
         .select('*')
-        .eq('round_number', currentRoundNumber);
+        .eq('round_number', currentRoundNumber)
+        .eq('player_name', currentPlayer.name);
 
       if (existingRoundsError) {
         throw existingRoundsError;
       }
 
-      // Si la manche n'a pas encore été enregistrée, procéder à l'insertion
+      // Si la manche n'a pas encore été enregistrée pour ce joueur, procéder à l'insertion
       if (!existingRounds || existingRounds.length === 0) {
         const { error: insertError } = await supabase
           .from('round_history')
@@ -69,7 +71,11 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
           );
 
         if (insertError) {
-          throw insertError;
+          // Si l'erreur est due à une violation de la contrainte unique, ce n'est pas grave
+          // Cela signifie que les scores ont déjà été enregistrés
+          if (!insertError.message.includes('unique_player_round')) {
+            throw insertError;
+          }
         }
 
         const playersOver100 = finalPlayers.filter(player => 
