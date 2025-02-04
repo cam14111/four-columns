@@ -38,33 +38,32 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
         throw lastRoundError;
       }
 
-      if (!lastRoundData || lastRoundData.length === 0) {
-        throw new Error('Aucun numéro de manche retourné');
-      }
-
       const currentRoundNumber = lastRoundData[0].round_number + 1;
 
-      const upsertPromises = finalPlayers.map(player => 
-        supabase
-          .from('round_history')
-          .upsert(
-            {
+      // Vérifier si des scores existent déjà pour ce numéro de manche
+      const { data: existingScores } = await supabase
+        .from('round_history')
+        .select('*')
+        .eq('round_number', currentRoundNumber);
+
+      // Si des scores existent déjà pour cette manche, on ne les réinsère pas
+      if (!existingScores || existingScores.length === 0) {
+        const upsertPromises = finalPlayers.map(player => 
+          supabase
+            .from('round_history')
+            .insert({
               player_name: player.name,
               round_number: currentRoundNumber,
               round_score: player.score
-            },
-            {
-              onConflict: 'player_name,round_number',
-              ignoreDuplicates: false
-            }
-          )
-      );
+            })
+        );
 
-      const results = await Promise.all(upsertPromises);
-      const errors = results.filter(result => result.error);
-      
-      if (errors.length > 0) {
-        throw new Error('Erreur lors de la sauvegarde des scores');
+        const results = await Promise.all(upsertPromises);
+        const errors = results.filter(result => result.error);
+        
+        if (errors.length > 0) {
+          throw new Error('Erreur lors de la sauvegarde des scores');
+        }
       }
 
       const playersOver100 = finalPlayers.filter(player => 
