@@ -13,15 +13,16 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
   const { handleError } = useErrorHandler();
 
   const handleGameEnd = async () => {
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    const hasFinishedRound = currentPlayer.grid.every(card => card === null || card.state === "visible");
+
+    // Calculate base scores first
     const baseScores = gameState.players.map(player => ({
       ...player,
       score: calculateVisibleCardsSum(player)
     }));
 
-    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-    const hasFinishedRound = currentPlayer.grid.every(card => card === null || card.state === "visible");
-
-    // Le score est doublé uniquement pour le joueur qui termine en premier
+    // Double score only for the current player if they finished first
     const finalPlayers = baseScores.map(player => ({
       ...player,
       score: player.id === currentPlayer.id && hasFinishedRound 
@@ -30,6 +31,7 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
     }));
 
     try {
+      // Get the last round number with locking to prevent race conditions
       const { data: lastRoundData, error: lastRoundError } = await supabase.rpc(
         'get_and_lock_last_round_number'
       );
@@ -40,30 +42,19 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
 
       const currentRoundNumber = lastRoundData[0].round_number + 1;
 
-      // Vérifier si des scores existent déjà pour ce numéro de manche
-      const { data: existingScores } = await supabase
+      // Insert scores for all players in a single transaction
+      const { error: insertError } = await supabase
         .from('round_history')
-        .select('*')
-        .eq('round_number', currentRoundNumber);
-
-      // Si des scores existent déjà pour cette manche, on ne les réinsère pas
-      if (!existingScores || existingScores.length === 0) {
-        const upsertPromises = finalPlayers.map(player => 
-          supabase
-            .from('round_history')
-            .insert({
-              player_name: player.name,
-              round_number: currentRoundNumber,
-              round_score: player.score
-            })
+        .insert(
+          finalPlayers.map(player => ({
+            player_name: player.name,
+            round_number: currentRoundNumber,
+            round_score: player.score
+          }))
         );
 
-        const results = await Promise.all(upsertPromises);
-        const errors = results.filter(result => result.error);
-        
-        if (errors.length > 0) {
-          throw new Error('Erreur lors de la sauvegarde des scores');
-        }
+      if (insertError) {
+        throw insertError;
       }
 
       const playersOver100 = finalPlayers.filter(player => 
@@ -79,7 +70,7 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
           title: "Fin de la partie !",
           description: `${winners.map(w => w.name).join(" et ")} ${winners.length > 1 ? 'remportent' : 'remporte'} la partie ! (${playersOver100.map(p => p.name).join(" et ")} ${playersOver100.length > 1 ? 'ont' : 'a'} dépassé 100 points)`
         });
-      } else {
+      } else if (hasFinishedRound) {
         toast({
           title: "Fin de la manche !",
           description: `${currentPlayer.name} a terminé la manche en premier : son score est doublé (${currentPlayer.score / 2} → ${currentPlayer.score}).`
