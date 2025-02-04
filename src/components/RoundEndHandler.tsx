@@ -18,7 +18,7 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
 
     if (!hasFinishedRound) return;
 
-    // Calculate base scores first
+    // Calculate base scores first (without doubling)
     const baseScores = gameState.players.map(player => ({
       ...player,
       score: calculateVisibleCardsSum(player)
@@ -27,7 +27,7 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
     // Find the maximum score
     const maxScore = Math.max(...baseScores.map(p => p.score));
 
-    // Double score only for the current player if they finished first AND have the highest score
+    // Double score ONLY for the current player if they finished first AND have the highest score
     const finalPlayers = baseScores.map(player => ({
       ...player,
       score: player.id === currentPlayer.id && hasFinishedRound && player.score === maxScore
@@ -88,7 +88,7 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
         } else if (hasFinishedRound && currentPlayer.score === maxScore) {
           toast({
             title: "Fin de la manche !",
-            description: `${currentPlayer.name} a terminé la manche en premier avec le plus grand score : son score est doublé (${currentPlayer.score / 2} → ${currentPlayer.score}).`
+            description: `${currentPlayer.name} a terminé la manche en premier avec le plus grand score (${currentPlayer.score / 2} points) : son score est doublé → ${currentPlayer.score} points.`
           });
         } else if (hasFinishedRound) {
           toast({
