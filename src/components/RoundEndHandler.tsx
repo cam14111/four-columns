@@ -18,14 +18,13 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
       score: calculateVisibleCardsSum(player)
     }));
 
-    const minScore = Math.min(...baseScores.map(p => p.score));
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-    const currentPlayerScore = calculateVisibleCardsSum(currentPlayer);
     const hasFinishedRound = currentPlayer.grid.every(card => card === null || card.state === "visible");
 
+    // Le score est doublé uniquement pour le joueur qui termine en premier
     const finalPlayers = baseScores.map(player => ({
       ...player,
-      score: player.id === currentPlayer.id && hasFinishedRound && currentPlayerScore > minScore 
+      score: player.id === currentPlayer.id && hasFinishedRound 
         ? player.score * 2 
         : player.score
     }));
@@ -82,21 +81,16 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
           description: `${winners.map(w => w.name).join(" et ")} ${winners.length > 1 ? 'remportent' : 'remporte'} la partie ! (${playersOver100.map(p => p.name).join(" et ")} ${playersOver100.length > 1 ? 'ont' : 'a'} dépassé 100 points)`
         });
       } else {
-        const roundWinner = baseScores.find(p => p.score === minScore);
-        const currentPlayerDoubled = hasFinishedRound && currentPlayerScore > minScore;
-        
         toast({
           title: "Fin de la manche !",
-          description: `${roundWinner?.name} remporte la manche avec ${minScore} points.${
-            currentPlayerDoubled ? ` ${currentPlayer.name} a terminé la manche mais n'avait pas le plus petit score : son score est doublé (${currentPlayerScore} → ${currentPlayerScore * 2}).` : ''
-          }`
+          description: `${currentPlayer.name} a terminé la manche en premier : son score est doublé (${currentPlayer.score / 2} → ${currentPlayer.score}).`
         });
       }
 
       setGameState(prev => ({
         ...prev,
         players: finalPlayers,
-        roundWinner: baseScores.find(p => p.score === minScore)
+        roundWinner: currentPlayer
       }));
 
     } catch (error) {
