@@ -146,7 +146,7 @@ export const GameBoard = () => {
             <div className="bg-white rounded-lg p-2 shadow-sm">
               <div className="flex justify-between items-center">
                 <span className="font-medium text-game-primary">
-                  Score actuel : {calculateVisibleCardsSum(humanPlayer)}
+                  {humanPlayer.name} : {calculateVisibleCardsSum(humanPlayer)}
                 </span>
                 <span className="font-medium text-game-primary">
                   IA : {calculateVisibleCardsSum(aiPlayer)}
