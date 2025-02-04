@@ -10,11 +10,11 @@ interface PlayerGridProps {
 
 export const PlayerGrid = ({ player, onCardClick, disabled, isMobile }: PlayerGridProps) => {
   return (
-    <div className="space-y-2 md:space-y-4">
+    <div className="space-y-1 md:space-y-2">
       <h2 className="text-lg md:text-xl font-semibold text-game-primary">
         Grille de {player.name}
       </h2>
-      <div className={`grid grid-cols-4 ${isMobile ? 'gap-2' : 'gap-4'}`}>
+      <div className={`grid grid-cols-4 ${isMobile ? 'gap-1' : 'gap-2'}`}>
         {player.grid.map((card, index) => (
           <div key={index} className={`${isMobile ? 'min-h-[80px]' : 'min-h-[100px]'}`}>
             {card && (
