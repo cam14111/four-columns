@@ -16,7 +16,7 @@ export const PlayerGrid = ({ player, onCardClick, disabled, isMobile }: PlayerGr
       </h2>
       <div className={`grid grid-cols-4 ${isMobile ? 'gap-1' : 'gap-2'}`}>
         {player.grid.map((card, index) => (
-          <div key={index} className={`${isMobile ? 'min-h-[80px]' : 'min-h-[100px]'}`}>
+          <div key={index} className={`${isMobile ? 'min-h-[60px]' : 'min-h-[80px]'}`}>
             {card && (
               <Card
                 card={card}
