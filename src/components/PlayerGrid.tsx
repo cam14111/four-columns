@@ -16,13 +16,13 @@ export const PlayerGrid = ({ player, onCardClick, disabled, isMobile }: PlayerGr
       </h2>
       <div className={`grid grid-cols-4 ${isMobile ? 'gap-1' : 'gap-2'}`}>
         {player.grid.map((card, index) => (
-          <div key={index} className={`${isMobile ? 'min-h-[60px]' : 'min-h-[80px]'}`}>
+          <div key={index} className={`${isMobile ? 'min-h-[50px]' : 'min-h-[100px]'}`}>
             {card && (
               <Card
                 card={card}
                 onClick={() => onCardClick(card)}
                 disabled={disabled}
-                className={isMobile ? 'scale-75 origin-top-left' : ''}
+                className={isMobile ? 'scale-75 origin-top-left w-10' : ''}
               />
             )}
           </div>
