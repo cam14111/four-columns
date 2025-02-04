@@ -16,6 +16,8 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     const hasFinishedRound = currentPlayer.grid.every(card => card === null || card.state === "visible");
 
+    if (!hasFinishedRound) return;
+
     // Calculate base scores first
     const baseScores = gameState.players.map(player => ({
       ...player,
@@ -43,54 +45,64 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
         throw lastRoundError;
       }
 
+      // Vérifier si la manche actuelle a déjà été enregistrée
       const currentRoundNumber = lastRoundData[0].round_number + 1;
-
-      // Insert scores for all players in a single transaction
-      const { error: insertError } = await supabase
+      const { data: existingRounds, error: existingRoundsError } = await supabase
         .from('round_history')
-        .insert(
-          finalPlayers.map(player => ({
-            player_name: player.name,
-            round_number: currentRoundNumber,
-            round_score: player.score
-          }))
-        );
+        .select('*')
+        .eq('round_number', currentRoundNumber);
 
-      if (insertError) {
-        throw insertError;
+      if (existingRoundsError) {
+        throw existingRoundsError;
       }
 
-      const playersOver100 = finalPlayers.filter(player => 
-        (player.totalScore + player.score) >= 100
-      );
+      // Si la manche n'a pas encore été enregistrée, procéder à l'insertion
+      if (!existingRounds || existingRounds.length === 0) {
+        const { error: insertError } = await supabase
+          .from('round_history')
+          .insert(
+            finalPlayers.map(player => ({
+              player_name: player.name,
+              round_number: currentRoundNumber,
+              round_score: player.score
+            }))
+          );
 
-      if (playersOver100.length > 0) {
-        const winners = finalPlayers.filter(player => 
-          (player.totalScore + player.score) < 100
+        if (insertError) {
+          throw insertError;
+        }
+
+        const playersOver100 = finalPlayers.filter(player => 
+          (player.totalScore + player.score) >= 100
         );
 
-        toast({
-          title: "Fin de la partie !",
-          description: `${winners.map(w => w.name).join(" et ")} ${winners.length > 1 ? 'remportent' : 'remporte'} la partie ! (${playersOver100.map(p => p.name).join(" et ")} ${playersOver100.length > 1 ? 'ont' : 'a'} dépassé 100 points)`
-        });
-      } else if (hasFinishedRound && currentPlayer.score === maxScore) {
-        toast({
-          title: "Fin de la manche !",
-          description: `${currentPlayer.name} a terminé la manche en premier avec le plus grand score : son score est doublé (${currentPlayer.score / 2} → ${currentPlayer.score}).`
-        });
-      } else if (hasFinishedRound) {
-        toast({
-          title: "Fin de la manche !",
-          description: `${currentPlayer.name} a terminé la manche en premier mais n'a pas le plus grand score : pas de doublement.`
-        });
+        if (playersOver100.length > 0) {
+          const winners = finalPlayers.filter(player => 
+            (player.totalScore + player.score) < 100
+          );
+
+          toast({
+            title: "Fin de la partie !",
+            description: `${winners.map(w => w.name).join(" et ")} ${winners.length > 1 ? 'remportent' : 'remporte'} la partie ! (${playersOver100.map(p => p.name).join(" et ")} ${playersOver100.length > 1 ? 'ont' : 'a'} dépassé 100 points)`
+          });
+        } else if (hasFinishedRound && currentPlayer.score === maxScore) {
+          toast({
+            title: "Fin de la manche !",
+            description: `${currentPlayer.name} a terminé la manche en premier avec le plus grand score : son score est doublé (${currentPlayer.score / 2} → ${currentPlayer.score}).`
+          });
+        } else if (hasFinishedRound) {
+          toast({
+            title: "Fin de la manche !",
+            description: `${currentPlayer.name} a terminé la manche en premier mais n'a pas le plus grand score : pas de doublement.`
+          });
+        }
+
+        setGameState(prev => ({
+          ...prev,
+          players: finalPlayers,
+          roundWinner: currentPlayer
+        }));
       }
-
-      setGameState(prev => ({
-        ...prev,
-        players: finalPlayers,
-        roundWinner: currentPlayer
-      }));
-
     } catch (error) {
       handleError(error);
     }
