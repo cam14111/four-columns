@@ -11,8 +11,10 @@ import { InitialCardsSelection } from "./InitialCardsSelection";
 import { PlayerNameForm } from "./PlayerNameForm";
 import { useRoundEndHandler } from "./RoundEndHandler";
 import { createDeck, dealInitialCards } from "@/lib/gameLogic";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export const GameBoard = () => {
+  const isMobile = useIsMobile();
   const { gameState, setGameState } = useGameState();
   const { handleCardClick } = useCardClickHandler({ gameState, setGameState });
   const { handleGameEnd } = useRoundEndHandler({ gameState, setGameState });
@@ -122,10 +124,13 @@ export const GameBoard = () => {
     return <PlayerNameForm onSubmit={handlePlayerNameSubmit} />;
   }
 
+  const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+  const humanPlayer = gameState.players[0];
+
   return (
-    <div className="min-h-screen bg-game-background p-8">
-      <div className="max-w-4xl mx-auto space-y-8">
-        <h1 className="text-3xl font-bold text-center text-game-primary">Skyjo</h1>
+    <div className="min-h-screen bg-game-background p-4 md:p-8">
+      <div className="max-w-4xl mx-auto space-y-4 md:space-y-8">
+        <h1 className="text-2xl md:text-3xl font-bold text-center text-game-primary">Skyjo</h1>
         
         {gameState.gamePhase === "selectInitialCards" && !gameState.players[gameState.currentPlayerIndex].isAI && (
           <InitialCardsSelection 
@@ -134,26 +139,18 @@ export const GameBoard = () => {
           />
         )}
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="md:col-span-2 space-y-8">
-            {gameState.players.map((player, index) => (
-              <PlayerGrid
-                key={player.id}
-                player={player}
-                onCardClick={handleCardClick}
-                disabled={
-                  (index !== gameState.currentPlayerIndex || 
-                  player.isAI ||
-                  (gameState.gamePhase === "action" && !gameState.selectedCard) ||
-                  ["roundEnd", "gameEnd"].includes(gameState.gamePhase)) &&
-                  gameState.gamePhase !== "selectInitialCards"
-                }
-              />
-            ))}
-          </div>
-          
-          <div className="space-y-8">
-            <div className="flex gap-4 items-start">
+        {isMobile ? (
+          // Mobile Layout
+          <div className="space-y-4">
+            {/* Current Score Display */}
+            <div className="bg-white rounded-lg p-2 shadow-sm">
+              <span className="font-medium text-game-primary">
+                Score actuel : {calculateVisibleCardsSum(humanPlayer)}
+              </span>
+            </div>
+
+            {/* Game Controls and Discard Pile in a row */}
+            <div className="flex justify-center gap-4 items-start">
               <GameControls
                 gameState={gameState}
                 onDrawFromDeck={handleDrawFromDeck}
@@ -173,13 +170,75 @@ export const GameBoard = () => {
                 }
               />
             </div>
-            <ScoreDisplay 
-              players={gameState.players} 
-              onNewGame={handleNewGame}
-              onContinueGame={handleContinueGame}
-            />
+
+            {/* Player Grids */}
+            <div className="space-y-4">
+              {gameState.players.map((player, index) => (
+                <PlayerGrid
+                  key={player.id}
+                  player={player}
+                  onCardClick={handleCardClick}
+                  isMobile={true}
+                  disabled={
+                    (index !== gameState.currentPlayerIndex || 
+                    player.isAI ||
+                    (gameState.gamePhase === "action" && !gameState.selectedCard) ||
+                    ["roundEnd", "gameEnd"].includes(gameState.gamePhase)) &&
+                    gameState.gamePhase !== "selectInitialCards"
+                  }
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          // Desktop Layout
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="md:col-span-2 space-y-8">
+              {gameState.players.map((player, index) => (
+                <PlayerGrid
+                  key={player.id}
+                  player={player}
+                  onCardClick={handleCardClick}
+                  disabled={
+                    (index !== gameState.currentPlayerIndex || 
+                    player.isAI ||
+                    (gameState.gamePhase === "action" && !gameState.selectedCard) ||
+                    ["roundEnd", "gameEnd"].includes(gameState.gamePhase)) &&
+                    gameState.gamePhase !== "selectInitialCards"
+                  }
+                />
+              ))}
+            </div>
+            
+            <div className="space-y-8">
+              <div className="flex gap-4 items-start">
+                <GameControls
+                  gameState={gameState}
+                  onDrawFromDeck={handleDrawFromDeck}
+                  disabled={
+                    gameState.players[gameState.currentPlayerIndex].isAI ||
+                    gameState.gamePhase === "selectInitialCards" ||
+                    ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
+                  }
+                />
+                <DiscardPile 
+                  discardPile={gameState.discardPile}
+                  onDrawFromDiscard={handleDrawFromDiscard}
+                  disabled={
+                    gameState.players[gameState.currentPlayerIndex].isAI ||
+                    gameState.gamePhase !== "draw" ||
+                    ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
+                  }
+                />
+              </div>
+              <ScoreDisplay 
+                players={gameState.players} 
+                onNewGame={handleNewGame}
+                onContinueGame={handleContinueGame}
+              />
+            </div>
+          </div>
+        )}
 
         <TurnPhase
           gamePhase={gameState.gamePhase}
@@ -191,4 +250,10 @@ export const GameBoard = () => {
       </div>
     </div>
   );
+};
+
+const calculateVisibleCardsSum = (player: Player): number => {
+  return player.grid
+    .filter(card => card && card.state === "visible")
+    .reduce((sum, card) => sum + (card?.value || 0), 0);
 };
