@@ -22,13 +22,13 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
       score: calculateVisibleCardsSum(player)
     }));
 
-    // Find the minimum score
-    const minScore = Math.min(...baseScores.map(p => p.score));
+    // Find the maximum score
+    const maxScore = Math.max(...baseScores.map(p => p.score));
 
-    // Double score only for the current player if they finished first AND have the lowest score
+    // Double score only for the current player if they finished first AND have the highest score
     const finalPlayers = baseScores.map(player => ({
       ...player,
-      score: player.id === currentPlayer.id && hasFinishedRound && player.score === minScore
+      score: player.id === currentPlayer.id && hasFinishedRound && player.score === maxScore
         ? player.score * 2 
         : player.score
     }));
@@ -73,15 +73,15 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
           title: "Fin de la partie !",
           description: `${winners.map(w => w.name).join(" et ")} ${winners.length > 1 ? 'remportent' : 'remporte'} la partie ! (${playersOver100.map(p => p.name).join(" et ")} ${playersOver100.length > 1 ? 'ont' : 'a'} dépassé 100 points)`
         });
-      } else if (hasFinishedRound && currentPlayer.score === minScore) {
+      } else if (hasFinishedRound && currentPlayer.score === maxScore) {
         toast({
           title: "Fin de la manche !",
-          description: `${currentPlayer.name} a terminé la manche en premier avec le plus petit score : son score est doublé (${currentPlayer.score / 2} → ${currentPlayer.score}).`
+          description: `${currentPlayer.name} a terminé la manche en premier avec le plus grand score : son score est doublé (${currentPlayer.score / 2} → ${currentPlayer.score}).`
         });
       } else if (hasFinishedRound) {
         toast({
           title: "Fin de la manche !",
-          description: `${currentPlayer.name} a terminé la manche en premier mais n'a pas le plus petit score : pas de doublement.`
+          description: `${currentPlayer.name} a terminé la manche en premier mais n'a pas le plus grand score : pas de doublement.`
         });
       }
 
