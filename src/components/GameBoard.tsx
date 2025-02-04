@@ -13,6 +13,7 @@ import { useRoundEndHandler } from "./RoundEndHandler";
 import { createDeck, dealInitialCards } from "@/lib/gameLogic";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Player } from "@/lib/types";
+import { MobileScoreDialog } from "./MobileScoreDialog";
 
 export const GameBoard = () => {
   const isMobile = useIsMobile();
@@ -97,7 +98,6 @@ export const GameBoard = () => {
     const currentPlayerAllRevealed = checkAllCardsRevealed(gameState.currentPlayerIndex);
     
     if (currentPlayerAllRevealed && gameState.gamePhase !== "roundEnd" && gameState.gamePhase !== "gameEnd") {
-      // Révéler toutes les cartes des deux joueurs
       setGameState(prev => {
         const updatedPlayers = prev.players.map(player => ({
           ...player,
@@ -142,59 +142,67 @@ export const GameBoard = () => {
         )}
         
         {isMobile ? (
-          <div className="space-y-4">
-            <div className="bg-white rounded-lg p-2 shadow-sm">
-              <div className="flex justify-between items-center">
-                <span className="font-medium text-game-primary">
-                  {humanPlayer.name} : {calculateVisibleCardsSum(humanPlayer)}
-                </span>
-                <span className="font-medium text-game-primary">
-                  IA : {calculateVisibleCardsSum(aiPlayer)}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex justify-center gap-4 items-start">
-              <GameControls
-                gameState={gameState}
-                onDrawFromDeck={handleDrawFromDeck}
-                disabled={
-                  gameState.players[gameState.currentPlayerIndex].isAI ||
-                  gameState.gamePhase === "selectInitialCards" ||
-                  ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
-                }
-              />
-              <DiscardPile 
-                discardPile={gameState.discardPile}
-                onDrawFromDiscard={handleDrawFromDiscard}
-                disabled={
-                  gameState.players[gameState.currentPlayerIndex].isAI ||
-                  gameState.gamePhase !== "draw" ||
-                  ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
-                }
-              />
-            </div>
-
+          <>
             <div className="space-y-4">
-              {gameState.players.map((player, index) => (
-                <PlayerGrid
-                  key={player.id}
-                  player={player}
-                  onCardClick={handleCardClick}
-                  isMobile={true}
+              <div className="bg-white rounded-lg p-2 shadow-sm">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-game-primary">
+                    {humanPlayer.name} : {calculateVisibleCardsSum(humanPlayer)}
+                  </span>
+                  <span className="font-medium text-game-primary">
+                    IA : {calculateVisibleCardsSum(aiPlayer)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex justify-center gap-4 items-start">
+                <GameControls
+                  gameState={gameState}
+                  onDrawFromDeck={handleDrawFromDeck}
                   disabled={
-                    (index !== gameState.currentPlayerIndex || 
-                    player.isAI ||
-                    (gameState.gamePhase === "action" && !gameState.selectedCard) ||
-                    ["roundEnd", "gameEnd"].includes(gameState.gamePhase)) &&
-                    gameState.gamePhase !== "selectInitialCards"
+                    gameState.players[gameState.currentPlayerIndex].isAI ||
+                    gameState.gamePhase === "selectInitialCards" ||
+                    ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
                   }
                 />
-              ))}
+                <DiscardPile 
+                  discardPile={gameState.discardPile}
+                  onDrawFromDiscard={handleDrawFromDiscard}
+                  disabled={
+                    gameState.players[gameState.currentPlayerIndex].isAI ||
+                    gameState.gamePhase !== "draw" ||
+                    ["roundEnd", "gameEnd"].includes(gameState.gamePhase)
+                  }
+                />
+              </div>
+
+              <div className="space-y-4">
+                {gameState.players.map((player, index) => (
+                  <PlayerGrid
+                    key={player.id}
+                    player={player}
+                    onCardClick={handleCardClick}
+                    isMobile={true}
+                    disabled={
+                      (index !== gameState.currentPlayerIndex || 
+                      player.isAI ||
+                      (gameState.gamePhase === "action" && !gameState.selectedCard) ||
+                      ["roundEnd", "gameEnd"].includes(gameState.gamePhase)) &&
+                      gameState.gamePhase !== "selectInitialCards"
+                    }
+                  />
+                ))}
+              </div>
+
+              <MobileScoreDialog
+                players={gameState.players}
+                onNewGame={handleNewGame}
+                onContinueGame={handleContinueGame}
+                open={gameState.gamePhase === "roundEnd" || gameState.gamePhase === "gameEnd"}
+              />
             </div>
-          </div>
+          </>
         ) : (
-          // Desktop Layout
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="md:col-span-2 space-y-8">
               {gameState.players.map((player, index) => (
