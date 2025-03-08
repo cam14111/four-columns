@@ -1,3 +1,4 @@
+
 import { GameState, Player } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useErrorHandler } from "@/hooks/use-error-handler";
@@ -89,17 +90,20 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
 
           toast({
             title: "Fin de la partie !",
-            description: `${winners.map(w => w.name).join(" et ")} ${winners.length > 1 ? 'remportent' : 'remporte'} la partie ! (${playersOver100.map(p => p.name).join(" et ")} ${playersOver100.length > 1 ? 'ont' : 'a'} dépassé 100 points)`
+            description: `${winners.map(w => w.name).join(" et ")} ${winners.length > 1 ? 'remportent' : 'remporte'} la partie ! (${playersOver100.map(p => p.name).join(" et ")} ${playersOver100.length > 1 ? 'ont' : 'a'} dépassé 100 points)`,
+            duration: 5000, // 5 secondes
           });
         } else if (hasFinishedRound && currentPlayer.score === maxScore) {
           toast({
             title: "Fin de la manche !",
-            description: `${currentPlayer.name} a terminé la manche en premier avec le plus grand score (${currentPlayer.score / 2} points) : son score est doublé → ${currentPlayer.score} points.`
+            description: `${currentPlayer.name} a terminé la manche en premier avec le plus grand score (${currentPlayer.score / 2} points) : son score est doublé → ${currentPlayer.score} points.`,
+            duration: 5000, // 5 secondes
           });
         } else if (hasFinishedRound) {
           toast({
             title: "Fin de la manche !",
-            description: `${currentPlayer.name} a terminé la manche en premier mais n'a pas le plus grand score : pas de doublement.`
+            description: `${currentPlayer.name} a terminé la manche en premier mais n'a pas le plus grand score : pas de doublement.`,
+            duration: 5000, // 5 secondes
           });
         }
 

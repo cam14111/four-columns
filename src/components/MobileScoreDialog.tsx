@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -81,10 +82,13 @@ export const MobileScoreDialog = ({
   };
 
   return (
-    <Dialog open={open} modal onOpenChange={() => {}}>
+    <Dialog open={open} modal={true} onOpenChange={() => {}}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-center">Scores</DialogTitle>
+          <DialogDescription className="text-center sr-only">
+            Récapitulatif des scores par manche
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 max-h-[60vh] overflow-y-auto">
           {players.map((player) => {
