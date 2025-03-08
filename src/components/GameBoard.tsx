@@ -1,3 +1,4 @@
+
 import React, { useEffect } from "react";
 import { useGameState } from "@/hooks/use-game-state";
 import { GameActions } from "@/components/GameActions";
@@ -129,6 +130,10 @@ export const GameBoard = () => {
   const humanPlayer = gameState.players[0];
   const aiPlayer = gameState.players[1];
 
+  // Determine if the score dialog should be open
+  const isScoreDialogOpen = isMobile && 
+    (gameState.gamePhase === "roundEnd" || gameState.gamePhase === "gameEnd");
+
   return (
     <div className="min-h-screen bg-game-background p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-4 md:space-y-8">
@@ -198,7 +203,7 @@ export const GameBoard = () => {
                 players={gameState.players}
                 onNewGame={handleNewGame}
                 onContinueGame={handleContinueGame}
-                open={gameState.gamePhase === "roundEnd" || gameState.gamePhase === "gameEnd"}
+                open={isScoreDialogOpen}
               />
             </div>
           </>

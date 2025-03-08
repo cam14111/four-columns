@@ -1,3 +1,4 @@
+
 import { Player } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -80,7 +81,7 @@ export const MobileScoreDialog = ({
   };
 
   return (
-    <Dialog open={open} modal>
+    <Dialog open={open} modal onOpenChange={() => {}}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-center">Scores</DialogTitle>
