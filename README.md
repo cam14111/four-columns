@@ -10,26 +10,52 @@ et **jouable hors-ligne** une fois chargée.
 Le but : révéler et remplacer les cartes de sa grille de 4 colonnes pour
 obtenir le plus petit total possible.
 
+## Fonctionnalités
+
+- **Moteur de jeu pur et testé** (`src/game/`) : toutes les règles (mise en
+  place, pioche/défausse, remplacement, colonnes identiques, dernier tour,
+  doublement du score) vivent dans un réducteur pur, couvert par des tests
+  unitaires.
+- **IA à 3 niveaux** (Facile / Normal / Expert) fondée sur un modèle de valeur
+  espérée, avec conscience de fin de manche en mode Expert.
+- **Interface mobile-first** : grille du joueur à portée du pouce, animations de
+  distribution et de retournement 3D, surbrillance des cibles jouables,
+  indicateur de « dernier tour ».
+- **Sons synthétisés** (Web Audio, aucun fichier audio) et **retour haptique**
+  (vibrations) — désactivables.
+- **Statistiques persistantes** (parties, victoires, séries, colonnes vidées,
+  meilleurs scores) et **écran de règles** intégré.
+- **Fin de partie festive** (confettis en canvas) et récapitulatif des manches.
+
+## Architecture
+
+- `src/game/` — moteur pur, sans dépendance à React :
+  `types.ts`, `deck.ts`, `engine.ts` (réducteur `reduce(state, action)`),
+  `ai.ts` (politique de l'IA), `settings.ts`, `stats.ts`.
+- `src/hooks/useGame.ts` — pont React : pilote les tours de l'IA, joue les
+  sons/vibrations et enregistre les statistiques.
+- `src/ui/` — composants d'affichage (écrans, plateau, cartes, superpositions).
+- Tests : `src/game/__tests__/` (Vitest).
+
 ## Stockage des données
 
-L'application n'a **pas de base de données**. L'historique des scores par manche
-est conservé localement dans le navigateur via **`localStorage`** (clé
-`four-columns:round-history`).
+L'application n'a **pas de base de données**. Tout est conservé localement via
+**`localStorage`** :
 
-- Les scores survivent aux rechargements de page sur le même navigateur.
-- Tout fonctionne hors-ligne, gratuitement.
-- « Nouvelle partie » efface l'historique local ; « Continuer la partie »
-  ajoute la manche courante au total.
+- `four-columns:settings` — nom, difficulté, sons, vibrations.
+- `four-columns:stats` — statistiques cumulées.
 
-> Note : une version précédente utilisait Supabase. Cette dépendance a été
-> entièrement supprimée au profit du stockage local, mieux adapté à un jeu
-> solo mono-appareil. Voir `src/lib/roundHistoryStore.ts`.
+Tout fonctionne hors-ligne, gratuitement, sur un seul appareil. Aucune donnée
+n'est envoyée à un serveur.
+
+> Note : des versions précédentes utilisaient Supabase puis un historique local
+> par manche ; ces mécanismes ont été remplacés par ce stockage minimal.
 
 ## Cartes
 
-Les cartes sont **dessinées nativement en CSS** (`src/components/CardVisual.tsx`,
-couleurs dans `src/lib/cardColors.ts`) : aucune image externe, un rendu net à
-toutes les tailles et un poids quasi nul pour le mode hors-ligne.
+Les cartes sont **dessinées nativement en CSS** (`src/ui/PlayingCard.tsx`,
+couleurs dans `src/ui/theme.ts`) : aucune image externe, un rendu net à toutes
+les tailles et un poids quasi nul pour le mode hors-ligne.
 
 ## Technologies
 
@@ -38,7 +64,7 @@ toutes les tailles et un poids quasi nul pour le mode hors-ligne.
 - React
 - shadcn/ui
 - Tailwind CSS
-- TanStack Query (cache local de l'historique)
+- Vitest (tests unitaires du moteur)
 - vite-plugin-pwa / Workbox (service worker, mode hors-ligne, installation)
 
 ## Prérequis
@@ -60,9 +86,10 @@ npm run dev
 L'application est servie sur l'URL affichée par Vite (par défaut
 http://localhost:8080).
 
-## Vérifier (lint / build)
+## Vérifier (tests / lint / build)
 
 ```sh
+npm test          # tests unitaires du moteur de jeu (Vitest)
 npm run lint
 npm run build
 npm run preview   # sert le build de production localement

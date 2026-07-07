@@ -1,0 +1,130 @@
+import { GameState } from "@/game/types";
+import { lowestTotalIndex } from "@/game/engine";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { Confetti } from "./Confetti";
+
+interface OverlayProps {
+  game: GameState;
+  onNextRound: () => void;
+  onNewGame: () => void;
+  onHome: () => void;
+}
+
+const ScoreTable = ({ game }: { game: GameState }) => {
+  const rounds = game.players[0].roundScores.length;
+  return (
+    <div className="overflow-hidden rounded-xl ring-1 ring-white/10">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-white/10 text-white/70">
+            <th className="px-3 py-2 text-left font-medium">Manche</th>
+            {game.players.map((p) => (
+              <th key={p.id} className="px-3 py-2 text-right font-medium">
+                {p.name}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: rounds }, (_, r) => (
+            <tr key={r} className="odd:bg-white/[0.03]">
+              <td className="px-3 py-1.5 text-white/70">{r + 1}</td>
+              {game.players.map((p) => (
+                <td key={p.id} className="px-3 py-1.5 text-right tabular-nums">
+                  {p.roundScores[r]}
+                </td>
+              ))}
+            </tr>
+          ))}
+          <tr className="border-t border-white/15 bg-white/[0.06] font-bold">
+            <td className="px-3 py-2">Total</td>
+            {game.players.map((p) => (
+              <td key={p.id} className="px-3 py-2 text-right tabular-nums">
+                {p.totalScore}
+              </td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+export const Overlays = ({
+  game,
+  onNextRound,
+  onNewGame,
+  onHome,
+}: OverlayProps) => {
+  if (game.phase !== "roundOver" && game.phase !== "gameOver") return null;
+
+  const isGameOver = game.phase === "gameOver";
+  const winner = lowestTotalIndex(game.players);
+  const humanWon = winner === 0;
+  const penalized = game.events.some(
+    (e) => e.type === "roundOver" && e.penalized
+  );
+  const closer = game.closedBy ?? 0;
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-slate-950/70 p-3 backdrop-blur-sm sm:items-center">
+      <Confetti run={isGameOver && humanWon} />
+      <div className="animate-float-up w-full max-w-md rounded-2xl bg-slate-900 p-5 text-white shadow-2xl ring-1 ring-white/10">
+        <div className="mb-3 text-center">
+          {isGameOver ? (
+            <>
+              <div className="text-4xl">{humanWon ? "🏆" : "🤖"}</div>
+              <h2 className="mt-1 text-2xl font-extrabold">
+                {humanWon ? "Vous gagnez !" : "L'ordinateur gagne"}
+              </h2>
+              <p className="text-white/70">
+                {humanWon
+                  ? "Le plus petit total l'emporte. Bien joué !"
+                  : "Ce sera pour la prochaine fois."}
+              </p>
+            </>
+          ) : (
+            <>
+              <h2 className="text-2xl font-extrabold">Fin de la manche</h2>
+              <p className="text-white/70">
+                {game.players[closer].name} a bouclé sa grille
+                {penalized ? " — score doublé !" : "."}
+              </p>
+            </>
+          )}
+        </div>
+
+        <ScoreTable game={game} />
+
+        <div
+          className={cn(
+            "mt-4 flex gap-2",
+            isGameOver ? "flex-col" : "flex-col sm:flex-row"
+          )}
+        >
+          {isGameOver ? (
+            <>
+              <Button
+                onClick={onNewGame}
+                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white"
+              >
+                Rejouer
+              </Button>
+              <Button variant="secondary" onClick={onHome} className="w-full">
+                Menu principal
+              </Button>
+            </>
+          ) : (
+            <Button
+              onClick={onNextRound}
+              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white"
+            >
+              Manche suivante
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};

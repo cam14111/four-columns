@@ -1,38 +1,145 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import Index from "./pages/Index";
+import { useGame } from "./hooks/useGame";
+import { loadSettings, saveSettings, Settings } from "./game/settings";
+import { resetStats, loadStats, Stats } from "./game/stats";
+import { setSoundEnabled, primeAudio } from "./lib/sound";
+import { setHapticsEnabled } from "./lib/haptics";
+import { Home } from "./ui/screens/Home";
+import { GameScreen } from "./ui/GameScreen";
+import { Overlays } from "./ui/Overlays";
+import { Panel } from "./ui/screens/Panel";
+import { Rules } from "./ui/screens/Rules";
+import { StatsScreen } from "./ui/screens/StatsScreen";
+import { SettingsScreen } from "./ui/screens/SettingsScreen";
+import { Menu } from "./ui/screens/Menu";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000,
-    },
-    mutations: {
-      retry: 1,
-    },
-  },
-});
+type Screen = "home" | "game";
+type PanelKind = "rules" | "stats" | "settings" | "menu" | null;
+
+const AppInner = () => {
+  const [settings, setSettings] = useState<Settings>(() => loadSettings());
+  const [screen, setScreen] = useState<Screen>("home");
+  const [panel, setPanel] = useState<PanelKind>(null);
+  const [started, setStarted] = useState(false);
+  const [statsView, setStatsView] = useState<Stats>(() => loadStats());
+
+  const { game, stats, aiThinking, dispatch, newGame, nextRound } = useGame({
+    playerName: settings.playerName,
+    difficulty: settings.difficulty,
+  });
+
+  // The game uses a fixed dark "table" aesthetic; force the dark token set so
+  // shadcn surfaces (dialogs, inputs, switches) match.
+  useEffect(() => {
+    document.documentElement.classList.add("dark");
+  }, []);
+
+  // Apply audio/haptics whenever settings change and persist them.
+  useEffect(() => {
+    setSoundEnabled(settings.sound);
+    setHapticsEnabled(settings.haptics);
+    saveSettings(settings);
+  }, [settings]);
+
+  // Keep the stats view fresh whenever the underlying stats change.
+  useEffect(() => setStatsView(stats), [stats]);
+
+  const patchSettings = useCallback((patch: Partial<Settings>) => {
+    setSettings((s) => ({ ...s, ...patch }));
+  }, []);
+
+  const startNewGame = useCallback(() => {
+    primeAudio();
+    newGame({
+      playerName: settings.playerName,
+      difficulty: settings.difficulty,
+    });
+    setStarted(true);
+    setPanel(null);
+    setScreen("game");
+  }, [newGame, settings.playerName, settings.difficulty]);
+
+  const openPanel = useCallback((p: PanelKind) => {
+    setStatsView(loadStats());
+    setPanel(p);
+  }, []);
+
+  const hasSavedGame =
+    started && game.phase !== "gameOver";
+
+  return (
+    <>
+      {screen === "home" ? (
+        <Home
+          name={settings.playerName}
+          difficulty={settings.difficulty}
+          hasSavedGame={hasSavedGame}
+          onNameChange={(playerName) => patchSettings({ playerName })}
+          onDifficultyChange={(difficulty) => patchSettings({ difficulty })}
+          onPlay={startNewGame}
+          onResume={() => {
+            primeAudio();
+            setScreen("game");
+          }}
+          onOpen={openPanel}
+        />
+      ) : (
+        <>
+          <GameScreen
+            game={game}
+            aiThinking={aiThinking}
+            dispatch={dispatch}
+            onOpenMenu={() => setPanel("menu")}
+          />
+          <Overlays
+            game={game}
+            onNextRound={nextRound}
+            onNewGame={startNewGame}
+            onHome={() => setScreen("home")}
+          />
+        </>
+      )}
+
+      {/* Panels */}
+      {panel === "menu" && (
+        <Panel title="Menu" onClose={() => setPanel(null)}>
+          <Menu
+            onResume={() => setPanel(null)}
+            onNewGame={startNewGame}
+            onOpen={(p) => openPanel(p)}
+            onHome={() => {
+              setPanel(null);
+              setScreen("home");
+            }}
+          />
+        </Panel>
+      )}
+      {panel === "rules" && (
+        <Panel title="Comment jouer" onClose={() => setPanel(started ? "menu" : null)}>
+          <Rules />
+        </Panel>
+      )}
+      {panel === "stats" && (
+        <Panel title="Statistiques" onClose={() => setPanel(started ? "menu" : null)}>
+          <StatsScreen
+            stats={statsView}
+            onReset={() => setStatsView(resetStats())}
+          />
+        </Panel>
+      )}
+      {panel === "settings" && (
+        <Panel title="Réglages" onClose={() => setPanel(started ? "menu" : null)}>
+          <SettingsScreen settings={settings} onChange={patchSettings} />
+        </Panel>
+      )}
+    </>
+  );
+};
 
 const App = () => (
   <ErrorBoundary>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <HashRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </HashRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <AppInner />
   </ErrorBoundary>
 );
 
