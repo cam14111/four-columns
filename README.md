@@ -4,6 +4,9 @@ Un jeu de **Skyjo en solo** (un joueur humain contre une IA) qui tourne
 entièrement dans le navigateur. Application 100 % front-end : **aucun backend,
 aucun service externe, aucun compte à créer**.
 
+C'est une **PWA** (Progressive Web App) : installable sur mobile et ordinateur,
+et **jouable hors-ligne** une fois chargée.
+
 ## Stockage des données
 
 L'application n'a **pas de base de données**. L'historique des scores par manche
@@ -27,6 +30,7 @@ est conservé localement dans le navigateur via **`localStorage`** (clé
 - shadcn/ui
 - Tailwind CSS
 - TanStack Query (cache local de l'historique)
+- vite-plugin-pwa / Workbox (service worker, mode hors-ligne, installation)
 
 ## Prérequis
 
@@ -55,13 +59,39 @@ npm run build
 npm run preview   # sert le build de production localement
 ```
 
-## Déploiement
+## PWA & icônes
 
-Le projet se compile en un site **statique** dans `dist/`. Il peut être
-hébergé gratuitement sur n'importe quel hébergeur de fichiers statiques :
+Le service worker et le manifest sont générés automatiquement au build par
+`vite-plugin-pwa`. Les icônes (`public/pwa-*.png`, `maskable-*.png`,
+`apple-touch-icon.png`, `favicon-32x32.png`) sont produites par un script
+autonome, sans dépendance externe :
 
-- **Netlify** / **Vercel** : importer le dépôt, commande de build
-  `npm run build`, dossier de publication `dist`.
-- **GitHub Pages** : publier le contenu de `dist/`.
+```sh
+npm run generate:icons   # à relancer seulement si vous changez le design
+```
 
-Aucune variable d'environnement ni secret n'est nécessaire.
+## Déploiement — GitHub Pages (automatique)
+
+Le dépôt contient un workflow GitHub Actions
+(`.github/workflows/deploy.yml`) qui **build et publie automatiquement** sur
+GitHub Pages à chaque push sur `main`.
+
+Configuration **à faire une seule fois** dans le dépôt GitHub :
+
+1. **Settings → Pages → Build and deployment → Source : « GitHub Actions »**.
+2. Pousser sur `main` (ou lancer le workflow manuellement via l'onglet
+   *Actions → Deploy to GitHub Pages → Run workflow*).
+
+L'application sera servie sur :
+**https://cam14111.github.io/skyjo-solo-play/**
+
+> Le chemin de base `/skyjo-solo-play/` est configuré dans `vite.config.ts`
+> (`base`). Si vous renommez le dépôt ou utilisez un domaine personnalisé,
+> ajustez cette valeur.
+
+### Autres hébergeurs statiques
+
+Le build (`dist/`) est un site statique déployable partout (Netlify, Vercel,
+…) : commande `npm run build`, dossier de publication `dist`. Aucune variable
+d'environnement ni secret n'est nécessaire. (Pour un hébergement à la racine
+du domaine, remettez `base` à `/`.)
