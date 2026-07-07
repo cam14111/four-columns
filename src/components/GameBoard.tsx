@@ -137,7 +137,7 @@ export const GameBoard = () => {
   return (
     <div className="min-h-screen bg-game-background p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-4 md:space-y-8">
-        <h1 className="hidden md:block text-3xl font-bold text-center text-game-primary">Skyjo</h1>
+        <h1 className="hidden md:block text-3xl font-bold text-center text-game-primary">4 Columns</h1>
         
         {gameState.gamePhase === "selectInitialCards" && !gameState.players[gameState.currentPlayerIndex].isAI && (
           <InitialCardsSelection 
@@ -263,6 +263,11 @@ export const GameBoard = () => {
           onDiscardCard={handleDiscardCard}
           isCurrentPlayerAI={gameState.players[gameState.currentPlayerIndex].isAI}
         />
+
+        <footer className="pt-4 pb-2 text-center text-[11px] leading-relaxed text-gray-400">
+          4&nbsp;Columns — jeu de cartes solo original. Projet indépendant, non
+          affilié à un éditeur de jeux et n'utilisant aucune marque tierce.
+        </footer>
       </div>
     </div>
   );

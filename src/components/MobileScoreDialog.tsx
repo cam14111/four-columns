@@ -9,7 +9,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  getRoundHistory,
+  RoundHistoryRecord as RoundHistory,
+} from "@/lib/roundHistoryStore";
 
 interface MobileScoreDialogProps {
   players: Player[];
@@ -18,31 +21,15 @@ interface MobileScoreDialogProps {
   open: boolean;
 }
 
-interface RoundHistory {
-  id: string;
-  player_name: string;
-  round_number: number;
-  round_score: number;
-  created_at: string;
-}
-
-export const MobileScoreDialog = ({ 
-  players, 
-  onNewGame, 
-  onContinueGame, 
-  open 
+export const MobileScoreDialog = ({
+  players,
+  onNewGame,
+  onContinueGame,
+  open
 }: MobileScoreDialogProps) => {
   const { data: roundHistory } = useQuery({
     queryKey: ['roundHistory'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('round_history')
-        .select('*')
-        .order('created_at', { ascending: true });
-      
-      if (error) throw error;
-      return data as RoundHistory[];
-    }
+    queryFn: async () => getRoundHistory() as RoundHistory[]
   });
 
   const roundsByNumber = roundHistory?.reduce((acc, round) => {

@@ -1,69 +1,117 @@
-# Welcome to your Lovable project
+# 4 Columns
 
-## Project info
+**4 Columns** est un jeu de cartes **solo** (un joueur humain contre une IA) qui
+tourne entièrement dans le navigateur. Application 100 % front-end : **aucun
+backend, aucun service externe, aucun compte à créer**.
 
-**URL**: https://lovable.dev/projects/af1e89ea-a910-4544-a5cc-29b876baa1aa
+C'est une **PWA** (Progressive Web App) : installable sur mobile et ordinateur,
+et **jouable hors-ligne** une fois chargée.
 
-## How can I edit this code?
+Le but : révéler et remplacer les cartes de sa grille de 4 colonnes pour
+obtenir le plus petit total possible.
 
-There are several ways of editing your application.
+## Stockage des données
 
-**Use Lovable**
+L'application n'a **pas de base de données**. L'historique des scores par manche
+est conservé localement dans le navigateur via **`localStorage`** (clé
+`four-columns:round-history`).
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/af1e89ea-a910-4544-a5cc-29b876baa1aa) and start prompting.
+- Les scores survivent aux rechargements de page sur le même navigateur.
+- Tout fonctionne hors-ligne, gratuitement.
+- « Nouvelle partie » efface l'historique local ; « Continuer la partie »
+  ajoute la manche courante au total.
 
-Changes made via Lovable will be committed automatically to this repo.
+> Note : une version précédente utilisait Supabase. Cette dépendance a été
+> entièrement supprimée au profit du stockage local, mieux adapté à un jeu
+> solo mono-appareil. Voir `src/lib/roundHistoryStore.ts`.
 
-**Use your preferred IDE**
+## Cartes
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Les cartes sont **dessinées nativement en CSS** (`src/components/CardVisual.tsx`,
+couleurs dans `src/lib/cardColors.ts`) : aucune image externe, un rendu net à
+toutes les tailles et un poids quasi nul pour le mode hors-ligne.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with .
+## Technologies
 
 - Vite
 - TypeScript
 - React
-- shadcn-ui
+- shadcn/ui
 - Tailwind CSS
+- TanStack Query (cache local de l'historique)
+- vite-plugin-pwa / Workbox (service worker, mode hors-ligne, installation)
 
-## How can I deploy this project?
+## Prérequis
 
-Simply open [Lovable](https://lovable.dev/projects/af1e89ea-a910-4544-a5cc-29b876baa1aa) and click on Share -> Publish.
+- Node.js 18+ et npm
 
-## I want to use a custom domain - is that possible?
+## Installation
 
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+```sh
+npm install
+```
+
+## Lancer en développement
+
+```sh
+npm run dev
+```
+
+L'application est servie sur l'URL affichée par Vite (par défaut
+http://localhost:8080).
+
+## Vérifier (lint / build)
+
+```sh
+npm run lint
+npm run build
+npm run preview   # sert le build de production localement
+```
+
+## PWA & icônes
+
+Le service worker et le manifest sont générés automatiquement au build par
+`vite-plugin-pwa`. Les icônes et l'image de partage (`public/pwa-*.png`,
+`maskable-*.png`, `apple-touch-icon.png`, `favicon-32x32.png`, `og-image.png`)
+sont produites par un script autonome, sans dépendance externe :
+
+```sh
+npm run generate:icons   # à relancer seulement si vous changez le design
+```
+
+## Déploiement — GitHub Pages (automatique)
+
+Le dépôt contient un workflow GitHub Actions
+(`.github/workflows/deploy.yml`) qui **build et publie automatiquement** sur
+GitHub Pages à chaque push sur `main`.
+
+Configuration **à faire une seule fois** dans le dépôt GitHub :
+
+1. **Settings → Pages → Build and deployment → Source : « GitHub Actions »**.
+2. Pousser sur `main` (ou lancer le workflow manuellement via l'onglet
+   *Actions → Deploy to GitHub Pages → Run workflow*).
+
+L'application sera servie sur :
+**https://cam14111.github.io/four-columns/**
+(adaptez `four-columns` au nom réel du dépôt).
+
+> Le build utilise un **chemin de base relatif** (`base: "./"` dans
+> `vite.config.ts`) : le site fonctionne sous n'importe quel sous-chemin, quel
+> que soit le nom du dépôt. **Renommer le dépôt ne nécessite aucune
+> modification du code.**
+
+### Autres hébergeurs statiques
+
+Le build (`dist/`) est un site statique déployable partout (Netlify, Vercel,
+…) : commande `npm run build`, dossier de publication `dist`. Aucune variable
+d'environnement ni secret n'est nécessaire. (Pour un hébergement à la racine
+du domaine, remettez `base` à `/`.)
+
+## Avis / marques
+
+4 Columns est un **projet indépendant et non commercial**, développé à titre
+personnel. Il **n'est affilié à, ni approuvé ou sponsorisé par aucun éditeur de
+jeux**. Les mécaniques de jeu de cartes ne sont pas protégeables en tant que
+telles ; cette application n'utilise **aucun nom de marque, logo ou visuel de
+tiers** — le nom, les icônes et les cartes sont originaux. Toute ressemblance
+avec un jeu du commerce se limite aux règles, qui relèvent du domaine des idées.

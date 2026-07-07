@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { isPlayerAuthorized } from "@/lib/playerService";
 
 interface PlayerNameFormProps {
   onSubmit: (name: string) => void;
@@ -13,7 +12,7 @@ export const PlayerNameForm = ({ onSubmit }: PlayerNameFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (name.trim().length < 2) {
       toast({
@@ -25,33 +24,15 @@ export const PlayerNameForm = ({ onSubmit }: PlayerNameFormProps) => {
     }
 
     setIsLoading(true);
-    try {
-      const isAuthorized = await isPlayerAuthorized(name.trim());
-      if (!isAuthorized) {
-        toast({
-          title: "Accès refusé",
-          description: "Vous n'êtes pas autorisé à jouer. Veuillez contacter l'administrateur.",
-          variant: "destructive",
-        });
-        return;
-      }
-      onSubmit(name.trim());
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description: "Une erreur est survenue lors de la vérification de l'autorisation",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    onSubmit(name.trim());
+    setIsLoading(false);
   };
 
   return (
     <div className="max-w-sm mx-auto mt-8">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold text-center">Bienvenue sur Skyjo</h2>
+          <h2 className="text-2xl font-bold text-center">Bienvenue sur 4 Columns</h2>
           <p className="text-center text-gray-600">
             Entrez votre nom pour commencer
           </p>
