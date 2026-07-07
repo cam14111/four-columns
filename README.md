@@ -113,7 +113,3 @@ jeux**. Les mécaniques de jeu de cartes ne sont pas protégeables en tant que
 telles ; cette application n'utilise **aucun nom de marque, logo ou visuel de
 tiers** — le nom, les icônes et les cartes sont originaux. Toute ressemblance
 avec un jeu du commerce se limite aux règles, qui relèvent du domaine des idées.
-
-## Licence
-
-Code sous licence **MIT** — voir [`LICENSE`](./LICENSE).
