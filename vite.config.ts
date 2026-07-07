@@ -20,9 +20,9 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "apple-touch-icon.png", "favicon-32x32.png"],
       manifest: {
-        name: "Skyjo Solo",
-        short_name: "Skyjo",
-        description: "Jeu de Skyjo en solo contre une IA — fonctionne hors-ligne.",
+        name: "4 Columns",
+        short_name: "4 Columns",
+        description: "Jeu de cartes solo original contre une IA — fonctionne hors-ligne.",
         lang: "fr",
         theme_color: "#4A90E2",
         background_color: "#E5F0F5",

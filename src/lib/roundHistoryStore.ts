@@ -13,7 +13,7 @@ export interface RoundHistoryRecord {
   created_at: string;
 }
 
-const STORAGE_KEY = "skyjo_round_history";
+const STORAGE_KEY = "four-columns:round-history";
 
 const generateId = (): string => {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {

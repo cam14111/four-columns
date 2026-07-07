@@ -1,6 +1,5 @@
-import { Button } from "@/components/ui/button";
 import { GameState } from "@/lib/types";
-import { getCardBackImage } from "@/lib/cardImages";
+import { CardBack } from "./CardVisual";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface GameControlsProps {
@@ -27,11 +26,7 @@ export const GameControls = ({
           }
         }}
       >
-        <img 
-          src={getCardBackImage()} 
-          alt="Pioche" 
-          className="w-full h-full object-cover rounded-lg"
-        />
+        <CardBack className="shadow-md" />
       </div>
     </div>
   );

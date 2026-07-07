@@ -1,6 +1,6 @@
-// Generates the PWA icons (real PNGs) with no external dependencies.
-//
-// Draws a small hand of Skyjo cards on the game's blue background. Run with:
+// Generates the PWA icons and the social (OG) image as real PNGs, with no
+// external dependencies. Draws an original 4x3 hand of colourful cards on the
+// app's blue background — no third-party artwork. Run with:
 //   node scripts/generate-icons.mjs
 // The produced PNGs are committed, so the build itself never needs this script.
 
@@ -24,8 +24,9 @@ const hex = (h) => {
 
 const BG = hex("#4A90E2");
 const WHITE = hex("#FFFFFF");
-const PALETTE = ["#7FC241", "#F5C623", "#E24A4A", "#82B1E5", "#2F6FB3"].map(hex);
-const LAYOUT = [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 4];
+const PALETTE = ["#22C55E", "#F4C025", "#EF4444", "#0EA5E9", "#1E3A8A"].map(hex);
+// 3 rows x 4 cols
+const LAYOUT = [0, 1, 2, 3, 1, 0, 3, 2, 4, 2, 1, 0];
 
 const insideRR = (px, py, x, y, w, h, r) => {
   r = Math.min(r, w / 2, h / 2);
@@ -36,40 +37,45 @@ const insideRR = (px, py, x, y, w, h, r) => {
   return dx * dx + dy * dy <= r * r;
 };
 
-const renderIcon = (size, maskable) => {
+// Renders an original 4x3 card motif centred on a (possibly rectangular) canvas.
+const render = (W0, H0, frac) => {
   const ss = 4; // supersampling for smooth rounded corners
-  const R = size * ss;
-  const buf = new Uint8Array(R * R * 4);
+  const W = W0 * ss;
+  const H = H0 * ss;
+  const buf = new Uint8Array(W * H * 4);
 
-  // Opaque blue background
-  for (let i = 0; i < R * R; i++) {
+  for (let i = 0; i < W * H; i++) {
     buf[i * 4] = BG[0];
     buf[i * 4 + 1] = BG[1];
     buf[i * 4 + 2] = BG[2];
     buf[i * 4 + 3] = 255;
   }
 
-  const cols = 3;
-  const rows = 4;
-  const fracH = maskable ? 0.66 : 0.84; // keep content inside the safe zone
-  const gridH = R * fracH;
-  const gap = gridH * 0.04;
-  const cellH = (gridH - gap * (rows + 1)) / rows;
-  const cellW = cellH * 0.78; // Skyjo card aspect ratio
-  const gridW = cellW * cols + gap * (cols + 1);
-  const gx = (R - gridW) / 2;
-  const gy = (R - gridH) / 2;
-  const rad = cellW * 0.18;
+  const cols = 4;
+  const rows = 3;
+  const aspect = 0.72; // card width / height
+  const gapRatio = 0.14;
+  const box = Math.min(W, H) * frac;
+  const wUnits = cols + (cols + 1) * gapRatio;
+  const hUnits = rows / aspect + (rows + 1) * gapRatio;
+  const cellW = Math.min(box / wUnits, box / hUnits);
+  const gap = cellW * gapRatio;
+  const cellH = cellW / aspect;
+  const gridW = cols * cellW + (cols + 1) * gap;
+  const gridH = rows * cellH + (rows + 1) * gap;
+  const gx = (W - gridW) / 2;
+  const gy = (H - gridH) / 2;
+  const rad = cellW * 0.16;
 
   const fillRR = (x, y, w, h, r, color) => {
     const x0 = Math.max(0, Math.floor(x));
     const y0 = Math.max(0, Math.floor(y));
-    const x1 = Math.min(R, Math.ceil(x + w));
-    const y1 = Math.min(R, Math.ceil(y + h));
+    const x1 = Math.min(W, Math.ceil(x + w));
+    const y1 = Math.min(H, Math.ceil(y + h));
     for (let py = y0; py < y1; py++) {
       for (let px = x0; px < x1; px++) {
         if (insideRR(px + 0.5, py + 0.5, x, y, w, h, r)) {
-          const idx = (py * R + px) * 4;
+          const idx = (py * W + px) * 4;
           buf[idx] = color[0];
           buf[idx + 1] = color[1];
           buf[idx + 2] = color[2];
@@ -91,16 +97,16 @@ const renderIcon = (size, maskable) => {
   }
 
   // Box downsample to the target size
-  const out = new Uint8Array(size * size * 4);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
+  const out = new Uint8Array(W0 * H0 * 4);
+  for (let y = 0; y < H0; y++) {
+    for (let x = 0; x < W0; x++) {
       let sr = 0;
       let sg = 0;
       let sb = 0;
       let sa = 0;
       for (let dy = 0; dy < ss; dy++) {
         for (let dx = 0; dx < ss; dx++) {
-          const idx = ((y * ss + dy) * R + (x * ss + dx)) * 4;
+          const idx = ((y * ss + dy) * W + (x * ss + dx)) * 4;
           sr += buf[idx];
           sg += buf[idx + 1];
           sb += buf[idx + 2];
@@ -108,7 +114,7 @@ const renderIcon = (size, maskable) => {
         }
       }
       const n = ss * ss;
-      const o = (y * size + x) * 4;
+      const o = (y * W0 + x) * 4;
       out[o] = Math.round(sr / n);
       out[o + 1] = Math.round(sg / n);
       out[o + 2] = Math.round(sb / n);
@@ -164,15 +170,16 @@ const encodePNG = (rgba, w, h) => {
 };
 
 const targets = [
-  { file: "pwa-192x192.png", size: 192, maskable: false },
-  { file: "pwa-512x512.png", size: 512, maskable: false },
-  { file: "maskable-512x512.png", size: 512, maskable: true },
-  { file: "apple-touch-icon.png", size: 180, maskable: false },
-  { file: "favicon-32x32.png", size: 32, maskable: false },
+  { file: "pwa-192x192.png", w: 192, h: 192, frac: 0.9 },
+  { file: "pwa-512x512.png", w: 512, h: 512, frac: 0.9 },
+  { file: "maskable-512x512.png", w: 512, h: 512, frac: 0.66 },
+  { file: "apple-touch-icon.png", w: 180, h: 180, frac: 0.9 },
+  { file: "favicon-32x32.png", w: 32, h: 32, frac: 0.94 },
+  { file: "og-image.png", w: 1200, h: 630, frac: 0.78 },
 ];
 
 for (const t of targets) {
-  const png = encodePNG(renderIcon(t.size, t.maskable), t.size, t.size);
+  const png = encodePNG(render(t.w, t.h, t.frac), t.w, t.h);
   writeFileSync(resolve(publicDir, t.file), png);
   console.log(`wrote public/${t.file} (${png.length} bytes)`);
 }

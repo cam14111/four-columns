@@ -32,7 +32,7 @@ export const PlayerNameForm = ({ onSubmit }: PlayerNameFormProps) => {
     <div className="max-w-sm mx-auto mt-8">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold text-center">Bienvenue sur Skyjo</h2>
+          <h2 className="text-2xl font-bold text-center">Bienvenue sur 4 Columns</h2>
           <p className="text-center text-gray-600">
             Entrez votre nom pour commencer
           </p>
