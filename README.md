@@ -92,11 +92,13 @@ Configuration **à faire une seule fois** dans le dépôt GitHub :
    *Actions → Deploy to GitHub Pages → Run workflow*).
 
 L'application sera servie sur :
-**https://cam14111.github.io/skyjo-solo-play/**
+**https://cam14111.github.io/four-columns/**
+(adaptez `four-columns` au nom réel du dépôt).
 
-> Le chemin de base `/skyjo-solo-play/` est configuré dans `vite.config.ts`
-> (`base`). Il correspond au **nom du dépôt** (et non au nom du jeu). Si vous
-> renommez le dépôt ou utilisez un domaine personnalisé, ajustez cette valeur.
+> Le build utilise un **chemin de base relatif** (`base: "./"` dans
+> `vite.config.ts`) : le site fonctionne sous n'importe quel sous-chemin, quel
+> que soit le nom du dépôt. **Renommer le dépôt ne nécessite aucune
+> modification du code.**
 
 ### Autres hébergeurs statiques
 

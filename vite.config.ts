@@ -6,9 +6,10 @@ import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // GitHub Pages serves this project site under /skyjo-solo-play/.
-  // Locally (dev) we keep it at the root.
-  base: mode === "production" ? "/skyjo-solo-play/" : "/",
+  // Relative base so the built site works under ANY sub-path (e.g. any GitHub
+  // Pages project URL, whatever the repo is named) with no code change.
+  // Dev server stays at the root.
+  base: mode === "production" ? "./" : "/",
   server: {
     host: "::",
     port: 8080,
