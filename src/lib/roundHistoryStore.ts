@@ -1,6 +1,6 @@
 // Local persistence for round scores.
 //
-// This replaces the former Supabase `round_history` table. Since Skyjo is
+// This replaces the former Supabase `round_history` table. Since the game is
 // played solo (one human + one AI on a single device), a remote database is
 // unnecessary: the score history only needs to survive page reloads on the
 // same browser, which localStorage does perfectly, for free and offline.
