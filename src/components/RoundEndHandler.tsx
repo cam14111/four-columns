@@ -2,7 +2,11 @@
 import { GameState, Player } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useErrorHandler } from "@/hooks/use-error-handler";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  addRoundScores,
+  getLastRoundNumber,
+  getRoundHistory,
+} from "@/lib/roundHistoryStore";
 
 interface RoundEndHandlerProps {
   gameState: GameState;
@@ -37,49 +41,30 @@ export const useRoundEndHandler = ({ gameState, setGameState }: RoundEndHandlerP
     }));
 
     try {
-      // Get the last round number with locking to prevent race conditions
-      const { data: lastRoundData, error: lastRoundError } = await supabase.rpc(
-        'get_and_lock_last_round_number'
-      );
-
-      if (lastRoundError) {
-        throw lastRoundError;
-      }
-
-      const currentRoundNumber = lastRoundData[0].round_number + 1;
+      // Local, single-device play: no concurrency, so the next round number is
+      // simply the last recorded one + 1.
+      const currentRoundNumber = getLastRoundNumber() + 1;
 
       // Vérifier si la manche actuelle a déjà été enregistrée
-      const { data: existingRounds, error: existingRoundsError } = await supabase
-        .from('round_history')
-        .select('*')
-        .eq('round_number', currentRoundNumber)
-        .eq('player_name', currentPlayer.name);
-
-      if (existingRoundsError) {
-        throw existingRoundsError;
-      }
+      const existingRounds = getRoundHistory().filter(
+        (round) =>
+          round.round_number === currentRoundNumber &&
+          round.player_name === currentPlayer.name
+      );
 
       // Si la manche n'a pas encore été enregistrée pour ce joueur, procéder à l'insertion
-      if (!existingRounds || existingRounds.length === 0) {
-        const { error: insertError } = await supabase
-          .from('round_history')
-          .insert(
-            finalPlayers.map(player => ({
-              player_name: player.name,
-              round_number: currentRoundNumber,
-              round_score: player.score
-            }))
-          );
+      if (existingRounds.length === 0) {
+        // addRoundScores deduplicates on (player_name, round_number), so any
+        // scores already recorded for this round are left untouched.
+        addRoundScores(
+          finalPlayers.map(player => ({
+            player_name: player.name,
+            round_number: currentRoundNumber,
+            round_score: player.score
+          }))
+        );
 
-        if (insertError) {
-          // Si l'erreur est due à une violation de la contrainte unique, ce n'est pas grave
-          // Cela signifie que les scores ont déjà été enregistrés
-          if (!insertError.message.includes('unique_player_round')) {
-            throw insertError;
-          }
-        }
-
-        const playersOver100 = finalPlayers.filter(player => 
+        const playersOver100 = finalPlayers.filter(player =>
           (player.totalScore + player.score) >= 100
         );
 

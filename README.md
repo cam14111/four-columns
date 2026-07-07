@@ -1,69 +1,67 @@
-# Welcome to your Lovable project
+# Skyjo (solo)
 
-## Project info
+Un jeu de **Skyjo en solo** (un joueur humain contre une IA) qui tourne
+entièrement dans le navigateur. Application 100 % front-end : **aucun backend,
+aucun service externe, aucun compte à créer**.
 
-**URL**: https://lovable.dev/projects/af1e89ea-a910-4544-a5cc-29b876baa1aa
+## Stockage des données
 
-## How can I edit this code?
+L'application n'a **pas de base de données**. L'historique des scores par manche
+est conservé localement dans le navigateur via **`localStorage`** (clé
+`skyjo_round_history`).
 
-There are several ways of editing your application.
+- Les scores survivent aux rechargements de page sur le même navigateur.
+- Tout fonctionne hors-ligne, gratuitement.
+- « Nouvelle partie » efface l'historique local ; « Continuer la partie »
+  ajoute la manche courante au total.
 
-**Use Lovable**
+> Note : une version précédente utilisait Supabase. Cette dépendance a été
+> entièrement supprimée au profit du stockage local, mieux adapté à un jeu
+> solo mono-appareil. Voir `src/lib/roundHistoryStore.ts`.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/af1e89ea-a910-4544-a5cc-29b876baa1aa) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with .
+## Technologies
 
 - Vite
 - TypeScript
 - React
-- shadcn-ui
+- shadcn/ui
 - Tailwind CSS
+- TanStack Query (cache local de l'historique)
 
-## How can I deploy this project?
+## Prérequis
 
-Simply open [Lovable](https://lovable.dev/projects/af1e89ea-a910-4544-a5cc-29b876baa1aa) and click on Share -> Publish.
+- Node.js 18+ et npm
 
-## I want to use a custom domain - is that possible?
+## Installation
 
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+```sh
+npm install
+```
+
+## Lancer en développement
+
+```sh
+npm run dev
+```
+
+L'application est servie sur l'URL affichée par Vite (par défaut
+http://localhost:8080).
+
+## Vérifier (lint / build)
+
+```sh
+npm run lint
+npm run build
+npm run preview   # sert le build de production localement
+```
+
+## Déploiement
+
+Le projet se compile en un site **statique** dans `dist/`. Il peut être
+hébergé gratuitement sur n'importe quel hébergeur de fichiers statiques :
+
+- **Netlify** / **Vercel** : importer le dépôt, commande de build
+  `npm run build`, dossier de publication `dist`.
+- **GitHub Pages** : publier le contenu de `dist/`.
+
+Aucune variable d'environnement ni secret n'est nécessaire.

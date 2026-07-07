@@ -2,20 +2,16 @@ import { Player } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  clearRoundHistory,
+  getRoundHistory,
+  RoundHistoryRecord as RoundHistory,
+} from "@/lib/roundHistoryStore";
 
 interface ScoreDisplayProps {
   players: Player[];
   onNewGame: () => void;
   onContinueGame: () => void;
-}
-
-interface RoundHistory {
-  id: string;
-  player_name: string;
-  round_number: number;
-  round_score: number;
-  created_at: string;
 }
 
 export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDisplayProps) => {
@@ -24,15 +20,7 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
 
   const { data: roundHistory } = useQuery({
     queryKey: ['roundHistory'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('round_history')
-        .select('*')
-        .order('created_at', { ascending: true });
-      
-      if (error) throw error;
-      return data as RoundHistory[];
-    }
+    queryFn: async () => getRoundHistory() as RoundHistory[]
   });
 
   const roundsByNumber = roundHistory?.reduce((acc, round) => {
@@ -46,10 +34,7 @@ export const ScoreDisplay = ({ players, onNewGame, onContinueGame }: ScoreDispla
   const handleNewGame = async () => {
     try {
       // Suppression uniquement des données de round_history
-      await supabase
-        .from('round_history')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
+      clearRoundHistory();
 
       queryClient.invalidateQueries({ queryKey: ['roundHistory'] });
       
