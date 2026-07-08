@@ -58,10 +58,11 @@
   #root {
     height: 100%;
   }
-  /* Solid base so no area is ever pure black (e.g. behind a camera cutout or
-     status bar in a fullscreen PWA, or during overscroll). */
+  /* Solid navy base (matches the manifest background/theme colour) so no area
+     is ever pure black — including any OS-drawn letterbox behind a camera
+     cutout / status bar that CSS on <body> can't reach. */
   html {
-    background-color: #05091a;
+    background-color: #0a1730;
   }
   body {
     @apply text-foreground;
