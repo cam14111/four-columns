@@ -57,8 +57,10 @@ export const GameScreen = ({
 
   return (
     <div className="app-bg flex min-h-[100dvh] flex-col text-white">
-      {/* Top bar */}
-      <header className="flex items-center justify-between gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
+      {/* Top bar — keep clear of a translucent status bar / notch. The floor
+          (1.25rem) covers a typical status bar even when safe-area insets
+          report 0 (non-notch devices), so the header is never clipped. */}
+      <header className="flex items-center justify-between gap-2 px-3 pt-[max(1.25rem,env(safe-area-inset-top))] pb-2">
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold">
             Manche {game.round}
