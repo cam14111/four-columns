@@ -12,7 +12,7 @@ export const Panel = ({
 }) => (
   <div className="fixed inset-0 z-40 flex justify-center bg-slate-950/80 backdrop-blur-sm">
     <div className="animate-float-up flex h-[100dvh] w-full max-w-md flex-col bg-slate-900 text-white shadow-2xl">
-      <header className="flex items-center justify-between border-b border-white/10 px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-3">
+      <header className="flex items-center justify-between border-b border-white/10 px-4 pt-[max(0.5rem,env(safe-area-inset-top))] pb-3">
         <h2 className="text-lg font-bold">{title}</h2>
         <button
           type="button"
