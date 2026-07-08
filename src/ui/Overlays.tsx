@@ -60,30 +60,51 @@ export const Overlays = ({
   if (game.phase !== "roundOver" && game.phase !== "gameOver") return null;
 
   const isGameOver = game.phase === "gameOver";
+  const duo = game.mode === "duo";
   const winner = lowestTotalIndex(game.players);
   const humanWon = winner === 0;
+  const tie =
+    game.players.length === 2 &&
+    game.players[0].totalScore === game.players[1].totalScore;
   const penalized = game.events.some(
     (e) => e.type === "roundOver" && e.penalized
   );
   const closer = game.closedBy ?? 0;
 
+  // Celebrate a human winner: the human in solo, always in duo (someone won).
+  const celebrate = isGameOver && (duo ? !tie : humanWon);
+
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-slate-950/70 p-3 backdrop-blur-sm sm:items-center">
-      <Confetti run={isGameOver && humanWon} />
+      <Confetti run={celebrate} />
       <div className="animate-float-up w-full max-w-md rounded-2xl bg-slate-900 p-5 text-white shadow-2xl ring-1 ring-white/10">
         <div className="mb-3 text-center">
           {isGameOver ? (
-            <>
-              <div className="text-4xl">{humanWon ? "🏆" : "🤖"}</div>
-              <h2 className="mt-1 text-2xl font-extrabold">
-                {humanWon ? "Vous gagnez !" : "L'ordinateur gagne"}
-              </h2>
-              <p className="text-white/70">
-                {humanWon
-                  ? "Le plus petit total l'emporte. Bien joué !"
-                  : "Ce sera pour la prochaine fois."}
-              </p>
-            </>
+            duo ? (
+              <>
+                <div className="text-4xl">{tie ? "🤝" : "🏆"}</div>
+                <h2 className="mt-1 text-2xl font-extrabold">
+                  {tie ? "Égalité !" : `${game.players[winner].name} gagne !`}
+                </h2>
+                <p className="text-white/70">
+                  {tie
+                    ? "Les deux totaux sont à égalité."
+                    : "Le plus petit total l'emporte. Bien joué !"}
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="text-4xl">{humanWon ? "🏆" : "🤖"}</div>
+                <h2 className="mt-1 text-2xl font-extrabold">
+                  {humanWon ? "Vous gagnez !" : "L'ordinateur gagne"}
+                </h2>
+                <p className="text-white/70">
+                  {humanWon
+                    ? "Le plus petit total l'emporte. Bien joué !"
+                    : "Ce sera pour la prochaine fois."}
+                </p>
+              </>
+            )
           ) : (
             <>
               <h2 className="text-2xl font-extrabold">Fin de la manche</h2>

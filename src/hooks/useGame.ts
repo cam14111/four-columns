@@ -64,6 +64,12 @@ export const useGame = (initial: CreateGameOptions): UseGame => {
           vibrate("medium");
           break;
         case "roundOver": {
+          // Stats track the solo "you vs computer" experience; a hot-seat duo
+          // game has no single "you", so we don't record it.
+          if (game.mode === "duo") {
+            columnsThisRound.current = 0;
+            break;
+          }
           const humanRound = game.players[0].lastRoundScore;
           setStats((prev) => {
             const next = recordRound(prev, {
@@ -78,6 +84,12 @@ export const useGame = (initial: CreateGameOptions): UseGame => {
         }
         case "gameOver": {
           const winner = lowestTotalIndex(game.players);
+          if (game.mode === "duo") {
+            // No stats in duo; still cue a celebratory sound/vibration.
+            playSound("win");
+            vibrate("success");
+            break;
+          }
           const won = winner === 0;
           setStats((prev) => {
             const next = recordGame(prev, {

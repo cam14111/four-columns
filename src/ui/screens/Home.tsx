@@ -1,5 +1,5 @@
-import { BarChart3, BookOpen, Play, Settings as SettingsIcon } from "lucide-react";
-import { CardValue, Difficulty } from "@/game/types";
+import { BarChart3, BookOpen, Play, Settings as SettingsIcon, User, Users } from "lucide-react";
+import { CardValue, Difficulty, GameMode } from "@/game/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -8,9 +8,13 @@ import { PlayingCard } from "../PlayingCard";
 
 interface HomeProps {
   name: string;
+  mode: GameMode;
+  player2Name: string;
   difficulty: Difficulty;
   hasSavedGame: boolean;
   onNameChange: (name: string) => void;
+  onModeChange: (m: GameMode) => void;
+  onPlayer2NameChange: (name: string) => void;
   onDifficultyChange: (d: Difficulty) => void;
   onPlay: () => void;
   onResume: () => void;
@@ -39,14 +43,19 @@ const HeroFan = () => (
 
 export const Home = ({
   name,
+  mode,
+  player2Name,
   difficulty,
   hasSavedGame,
   onNameChange,
+  onModeChange,
+  onPlayer2NameChange,
   onDifficultyChange,
   onPlay,
   onResume,
   onOpen,
 }: HomeProps) => {
+  const duo = mode === "duo";
   return (
     <div className="app-bg flex min-h-[100dvh] flex-col items-center justify-center px-6 py-8 text-white">
       <div className="w-full max-w-sm">
@@ -55,46 +64,82 @@ export const Home = ({
           4 <span className="text-amber-300">Columns</span>
         </h1>
         <p className="mt-2 text-center text-white/70">
-          Videz vos colonnes, gardez le plus petit total. Vous contre
-          l'ordinateur.
+          {duo
+            ? "Videz vos colonnes, gardez le plus petit total. À deux, sur le même téléphone."
+            : "Videz vos colonnes, gardez le plus petit total. Vous contre l'ordinateur."}
         </p>
 
         <div className="mt-7 space-y-4 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-white/60">
-              Votre nom
+              Mode de jeu
+            </label>
+            <div className="grid grid-cols-2 gap-1.5">
+              <ModeButton
+                active={!duo}
+                onClick={() => onModeChange("solo")}
+                icon={<User size={16} />}
+                label="Solo"
+              />
+              <ModeButton
+                active={duo}
+                onClick={() => onModeChange("duo")}
+                icon={<Users size={16} />}
+                label="2 joueurs"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-white/60">
+              {duo ? "Nom du joueur 1" : "Votre nom"}
             </label>
             <Input
               value={name}
               maxLength={16}
-              placeholder="Vous"
+              placeholder={duo ? "Joueur 1" : "Vous"}
               onChange={(e) => onNameChange(e.target.value)}
               className="border-white/15 bg-white/10 text-white placeholder:text-white/40"
             />
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-white/60">
-              Difficulté
-            </label>
-            <div className="grid grid-cols-3 gap-1.5">
-              {DIFFS.map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => onDifficultyChange(d)}
-                  className={cn(
-                    "rounded-xl py-2 text-sm font-semibold transition-colors",
-                    difficulty === d
-                      ? "bg-amber-300 text-slate-900"
-                      : "bg-white/10 text-white/80 hover:bg-white/15"
-                  )}
-                >
-                  {DIFFICULTY_LABEL[d]}
-                </button>
-              ))}
+          {duo ? (
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-white/60">
+                Nom du joueur 2
+              </label>
+              <Input
+                value={player2Name}
+                maxLength={16}
+                placeholder="Joueur 2"
+                onChange={(e) => onPlayer2NameChange(e.target.value)}
+                className="border-white/15 bg-white/10 text-white placeholder:text-white/40"
+              />
             </div>
-          </div>
+          ) : (
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-white/60">
+                Difficulté
+              </label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {DIFFS.map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => onDifficultyChange(d)}
+                    className={cn(
+                      "rounded-xl py-2 text-sm font-semibold transition-colors",
+                      difficulty === d
+                        ? "bg-amber-300 text-slate-900"
+                        : "bg-white/10 text-white/80 hover:bg-white/15"
+                    )}
+                  >
+                    {DIFFICULTY_LABEL[d]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="mt-5 space-y-2">
@@ -125,6 +170,32 @@ export const Home = ({
     </div>
   );
 };
+
+const ModeButton = ({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={cn(
+      "flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-colors",
+      active
+        ? "bg-amber-300 text-slate-900"
+        : "bg-white/10 text-white/80 hover:bg-white/15"
+    )}
+  >
+    {icon}
+    {label}
+  </button>
+);
 
 const MenuTile = ({
   icon,

@@ -5,6 +5,7 @@ import {
   Difficulty,
   GameAction,
   GameEvent,
+  GameMode,
   GameState,
   Grid,
   GRID_SIZE,
@@ -42,7 +43,10 @@ export const visibleScore = (grid: Grid): number =>
 // ---------------------------------------------------------------------------
 
 export interface CreateGameOptions {
+  mode?: GameMode;
   playerName?: string;
+  /** Second human's name — only used in duo (hot-seat) mode. */
+  player2Name?: string;
   difficulty?: Difficulty;
   scoreLimit?: number;
   seed?: number;
@@ -59,6 +63,7 @@ const dealGrid = (
 
 /** Builds a fresh game (new totals) in the "setup" phase. */
 export const createGame = (opts: CreateGameOptions = {}): GameState => {
+  const mode: GameMode = opts.mode ?? "solo";
   const seed = opts.seed ?? randomSeed();
   const built = buildDeck();
   const shuffled = shuffle(built, seed);
@@ -73,10 +78,11 @@ export const createGame = (opts: CreateGameOptions = {}): GameState => {
   cursor += 1;
   const deck = shuffled.cards.slice(cursor);
 
+  const duo = mode === "duo";
   const players: PlayerState[] = [
     {
       id: "human",
-      name: opts.playerName?.trim() || "Vous",
+      name: opts.playerName?.trim() || (duo ? "Joueur 1" : "Vous"),
       isAI: false,
       grid: human.grid,
       totalScore: 0,
@@ -84,9 +90,9 @@ export const createGame = (opts: CreateGameOptions = {}): GameState => {
       roundScores: [],
     },
     {
-      id: "ai",
-      name: "Ordinateur",
-      isAI: true,
+      id: duo ? "human2" : "ai",
+      name: duo ? opts.player2Name?.trim() || "Joueur 2" : "Ordinateur",
+      isAI: !duo,
       grid: ai.grid,
       totalScore: 0,
       lastRoundScore: 0,
@@ -95,6 +101,7 @@ export const createGame = (opts: CreateGameOptions = {}): GameState => {
   ];
 
   return {
+    mode,
     players,
     currentPlayer: 0,
     deck,

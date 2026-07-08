@@ -1,8 +1,9 @@
 # 4 Columns
 
-**4 Columns** est un jeu de cartes **solo** (un joueur humain contre une IA) qui
-tourne entièrement dans le navigateur. Application 100 % front-end : **aucun
-backend, aucun service externe, aucun compte à créer**.
+**4 Columns** est un jeu de cartes qui tourne entièrement dans le navigateur,
+jouable en **solo** (un joueur humain contre une IA) ou à **deux joueurs sur le
+même téléphone** (mode « chacun son tour »). Application 100 % front-end :
+**aucun backend, aucun service externe, aucun compte à créer**.
 
 C'est une **PWA** (Progressive Web App) : installable sur mobile et ordinateur,
 et **jouable hors-ligne** une fois chargée.
@@ -18,6 +19,9 @@ obtenir le plus petit total possible.
   unitaires.
 - **IA à 3 niveaux** (Facile / Normal / Expert) fondée sur un modèle de valeur
   espérée, avec conscience de fin de manche en mode Expert.
+- **Mode 2 joueurs local** (« chacun son tour » sur un seul appareil) : la grille
+  du joueur actif passe en bas de l'écran, agrandie et jouable, et bascule
+  automatiquement à l'autre joueur quand le tour change.
 - **Interface mobile-first** : grille du joueur à portée du pouce, animations de
   distribution et de retournement 3D, surbrillance des cibles jouables,
   indicateur de « dernier tour ».

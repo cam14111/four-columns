@@ -1,10 +1,13 @@
-import { Difficulty } from "./types";
+import { Difficulty, GameMode } from "./types";
 
 // User settings, persisted locally. No account, no server — a single JSON blob
 // in localStorage keyed per concern.
 
 export interface Settings {
+  mode: GameMode;
   playerName: string;
+  /** Second human's name, used in duo (two-players-on-one-device) mode. */
+  player2Name: string;
   difficulty: Difficulty;
   sound: boolean;
   haptics: boolean;
@@ -13,7 +16,9 @@ export interface Settings {
 const KEY = "four-columns:settings";
 
 export const DEFAULT_SETTINGS: Settings = {
+  mode: "solo",
   playerName: "",
+  player2Name: "",
   difficulty: "normal",
   sound: true,
   haptics: true,
