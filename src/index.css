@@ -58,6 +58,11 @@
   #root {
     height: 100%;
   }
+  /* Solid base so no area is ever pure black (e.g. behind a camera cutout or
+     status bar in a fullscreen PWA, or during overscroll). */
+  html {
+    background-color: #05091a;
+  }
   body {
     @apply text-foreground;
     margin: 0;
@@ -65,21 +70,23 @@
     overscroll-behavior-y: none;
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
       "Helvetica Neue", Arial, sans-serif;
+    /* The table gradient lives on the root and is fixed to the viewport, so it
+       fills the ENTIRE physical screen — including behind the status bar /
+       camera cutout in fullscreen — with no seam. */
+    background:
+      radial-gradient(1200px 600px at 50% -8%, #13294c 0%, transparent 60%),
+      radial-gradient(900px 520px at 100% 100%, #0a3f39 0%, transparent 55%),
+      linear-gradient(160deg, #060f22 0%, #060c1c 55%, #05091a 100%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
   }
 }
 
 /* ---- Table backdrop ------------------------------------------------------ */
+/* App containers stay transparent so the single fixed root gradient shows
+   through seamlessly across the whole screen. */
 .app-bg {
-  background:
-    radial-gradient(1200px 600px at 50% -10%, #1b3a6b 0%, transparent 60%),
-    radial-gradient(900px 500px at 100% 100%, #0d5b53 0%, transparent 55%),
-    linear-gradient(160deg, #0b1e3f 0%, #0a1730 55%, #08122a 100%);
-}
-.dark .app-bg {
-  background:
-    radial-gradient(1200px 600px at 50% -10%, #13294c 0%, transparent 60%),
-    radial-gradient(900px 500px at 100% 100%, #0a3f39 0%, transparent 55%),
-    linear-gradient(160deg, #060f22 0%, #060c1c 55%, #05091a 100%);
+  background: transparent;
 }
 
 /* ---- 3D card flip (these utilities were missing before) ------------------ */
