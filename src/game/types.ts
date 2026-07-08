@@ -32,6 +32,12 @@ export const GRID_SIZE = ROWS * COLS; // 12
 
 export type Difficulty = "easy" | "normal" | "hard";
 
+/**
+ * "solo" — one human (index 0) versus the AI (index 1).
+ * "duo"  — two humans sharing the same device (hot-seat / pass-and-play).
+ */
+export type GameMode = "solo" | "duo";
+
 export interface PlayerState {
   id: string;
   name: string;
@@ -58,6 +64,8 @@ export type GamePhase =
 export type HeldSource = "deck" | "discard" | null;
 
 export interface GameState {
+  /** Solo (vs AI) or duo (two humans on one device). */
+  mode: GameMode;
   players: PlayerState[];
   currentPlayer: number;
   deck: Card[];

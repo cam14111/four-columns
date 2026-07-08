@@ -25,7 +25,9 @@ const AppInner = () => {
   const [statsView, setStatsView] = useState<Stats>(() => loadStats());
 
   const { game, stats, aiThinking, dispatch, newGame, nextRound } = useGame({
+    mode: settings.mode,
     playerName: settings.playerName,
+    player2Name: settings.player2Name,
     difficulty: settings.difficulty,
   });
 
@@ -52,13 +54,21 @@ const AppInner = () => {
   const startNewGame = useCallback(() => {
     primeAudio();
     newGame({
+      mode: settings.mode,
       playerName: settings.playerName,
+      player2Name: settings.player2Name,
       difficulty: settings.difficulty,
     });
     setStarted(true);
     setPanel(null);
     setScreen("game");
-  }, [newGame, settings.playerName, settings.difficulty]);
+  }, [
+    newGame,
+    settings.mode,
+    settings.playerName,
+    settings.player2Name,
+    settings.difficulty,
+  ]);
 
   const openPanel = useCallback((p: PanelKind) => {
     setStatsView(loadStats());
@@ -73,9 +83,13 @@ const AppInner = () => {
       {screen === "home" ? (
         <Home
           name={settings.playerName}
+          mode={settings.mode}
+          player2Name={settings.player2Name}
           difficulty={settings.difficulty}
           hasSavedGame={hasSavedGame}
           onNameChange={(playerName) => patchSettings({ playerName })}
+          onModeChange={(mode) => patchSettings({ mode })}
+          onPlayer2NameChange={(player2Name) => patchSettings({ player2Name })}
           onDifficultyChange={(difficulty) => patchSettings({ difficulty })}
           onPlay={startNewGame}
           onResume={() => {

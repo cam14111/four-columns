@@ -21,30 +21,38 @@ export const GameScreen = ({
   dispatch,
   onOpenMenu,
 }: GameScreenProps) => {
-  const human = game.players[0];
-  const ai = game.players[1];
-  const isHumanTurn = game.currentPlayer === 0;
+  const duo = game.mode === "duo";
   const phase = game.phase;
 
-  const humanCanAct = isHumanTurn && !aiThinking;
-  const setupHuman = phase === "setup" && isHumanTurn;
+  // Solo keeps the human anchored at the bottom (the AI never "sits down" at
+  // the phone). Duo is hot-seat: whoever's turn it is takes the bottom, large,
+  // interactive grid, and the board flips as play passes across the table.
+  const bottomIndex = duo ? game.currentPlayer : 0;
+  const topIndex = duo ? 1 - game.currentPlayer : 1;
+  const bottomPlayer = game.players[bottomIndex];
+  const topPlayer = game.players[topIndex];
 
-  // Which grid slots the human may click, per phase.
+  // The bottom player may act only when it is genuinely their turn.
+  const bottomIsCurrent = game.currentPlayer === bottomIndex;
+  const canAct = bottomIsCurrent && !aiThinking;
+  const setupBottom = phase === "setup" && canAct;
+
+  // Which grid slots the bottom player may click, per phase.
   const selectable = (index: number): boolean => {
-    if (!humanCanAct) return false;
-    const c = human.grid[index];
-    if (setupHuman) return !!c && !c.faceUp;
+    if (!canAct) return false;
+    const c = bottomPlayer.grid[index];
+    if (setupBottom) return !!c && !c.faceUp;
     if (phase === "replace") return !!c;
     if (phase === "flip") return !!c && !c.faceUp;
     return false;
   };
 
-  const handleHumanCard = (index: number) => {
-    if (!humanCanAct) return;
-    const c = human.grid[index];
+  const handleBottomCard = (index: number) => {
+    if (!canAct) return;
+    const c = bottomPlayer.grid[index];
     if (!c) return;
-    if (setupHuman && !c.faceUp) {
-      dispatch({ type: "revealInitial", player: 0, index });
+    if (setupBottom && !c.faceUp) {
+      dispatch({ type: "revealInitial", player: bottomIndex, index });
     } else if (phase === "replace") {
       dispatch({ type: "placeAt", index });
     } else if (phase === "flip" && !c.faceUp) {
@@ -53,7 +61,8 @@ export const GameScreen = ({
   };
 
   const prompt = getPrompt(game, aiThinking);
-  const finalTurnFor = game.closedBy !== null ? game.currentPlayer : null;
+  const bottomFinalTurn = game.closedBy !== null && game.currentPlayer === bottomIndex;
+  const topFinalTurn = game.closedBy !== null && game.currentPlayer === topIndex;
 
   return (
     <div className="app-bg flex min-h-[100dvh] flex-col text-white">
@@ -66,7 +75,7 @@ export const GameScreen = ({
             Manche {game.round}
           </span>
           <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold">
-            {DIFFICULTY_LABEL[game.difficulty]}
+            {duo ? "2 joueurs" : DIFFICULTY_LABEL[game.difficulty]}
           </span>
         </div>
         <button
@@ -80,18 +89,18 @@ export const GameScreen = ({
       </header>
 
       <main className="flex flex-1 flex-col justify-between gap-2 px-3 pb-2">
-        {/* Opponent */}
+        {/* Opponent / other player */}
         <section className="flex flex-col items-center gap-1.5">
           <PlayerBadge
-            player={ai}
-            active={game.currentPlayer === 1 && phase !== "roundOver"}
-            finalTurn={finalTurnFor === 1}
+            player={topPlayer}
+            active={game.currentPlayer === topIndex && phase !== "roundOver"}
+            finalTurn={topFinalTurn}
             live
           />
           <Grid
-            player={ai}
+            player={topPlayer}
             size="sm"
-            active={game.currentPlayer === 1 && phase !== "roundOver"}
+            active={game.currentPlayer === topIndex && phase !== "roundOver"}
             dealKey={game.round}
           />
         </section>
@@ -101,9 +110,9 @@ export const GameScreen = ({
           <Piles
             deckCount={game.deck.length}
             discardTop={game.discard[0] ?? null}
-            canDraw={humanCanAct && phase === "draw"}
+            canDraw={canAct && phase === "draw"}
             canTakeDiscard={
-              humanCanAct && phase === "draw" && game.discard.length > 0
+              canAct && phase === "draw" && game.discard.length > 0
             }
             onDrawDeck={() => dispatch({ type: "drawFromDeck" })}
             onTakeDiscard={() => dispatch({ type: "takeFromDiscard" })}
@@ -121,28 +130,28 @@ export const GameScreen = ({
           </div>
         </section>
 
-        {/* Player */}
+        {/* Bottom player (interactive) */}
         <section className="flex flex-col items-center gap-1.5">
           <Grid
-            player={human}
+            player={bottomPlayer}
             size="md"
-            onCardClick={handleHumanCard}
+            onCardClick={handleBottomCard}
             selectableIndex={selectable}
-            disabled={!humanCanAct}
-            active={isHumanTurn && phase !== "roundOver"}
+            disabled={!canAct}
+            active={bottomIsCurrent && phase !== "roundOver"}
             dealKey={game.round}
           />
           <PlayerBadge
-            player={human}
-            active={isHumanTurn && phase !== "roundOver"}
-            finalTurn={finalTurnFor === 0}
+            player={bottomPlayer}
+            active={bottomIsCurrent && phase !== "roundOver"}
+            finalTurn={bottomFinalTurn}
             live
           />
         </section>
       </main>
 
       {/* Decide action bar (drawn a deck card: keep or discard) */}
-      {phase === "decide" && isHumanTurn && game.held && (
+      {phase === "decide" && canAct && game.held && (
         <div className="sticky bottom-0 z-20 flex items-center justify-center gap-4 border-t border-white/10 bg-slate-950/70 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
           <div className="animate-pop">
             <PlayingCard card={{ ...game.held, faceUp: true }} size="md" />
@@ -165,7 +174,7 @@ export const GameScreen = ({
       )}
 
       {/* Held card indicator while placing (from discard or after keep) */}
-      {(phase === "replace" || phase === "flip") && isHumanTurn && (
+      {(phase === "replace" || phase === "flip") && canAct && (
         <div className="pointer-events-none sticky bottom-0 z-10 flex items-center justify-center gap-3 px-4 py-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {game.held && phase === "replace" && (
             <div className="flex items-center gap-2 rounded-full bg-slate-950/70 px-3 py-1.5 backdrop-blur">
@@ -183,13 +192,18 @@ export const GameScreen = ({
 
 const getPrompt = (game: GameState, aiThinking: boolean): string => {
   if (aiThinking) return "L'ordinateur réfléchit…";
-  const isHuman = game.currentPlayer === 0;
-  if (!isHuman) return "Tour de l'ordinateur";
+  const current = game.players[game.currentPlayer];
+  if (current.isAI) return "Tour de l'ordinateur";
+  const duo = game.mode === "duo";
   switch (game.phase) {
     case "setup":
-      return "Retournez 2 cartes de votre grille";
+      return duo
+        ? `${current.name} : retournez 2 cartes`
+        : "Retournez 2 cartes de votre grille";
     case "draw":
-      return "Piochez une carte ou prenez la défausse";
+      return duo
+        ? `À ${current.name} de jouer : piochez ou prenez la défausse`
+        : "Piochez une carte ou prenez la défausse";
     case "decide":
       return "Garder cette carte ou la défausser ?";
     case "replace":
