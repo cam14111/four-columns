@@ -25,9 +25,13 @@ export default defineConfig(({ mode }) => ({
         short_name: "4 Columns",
         description: "Jeu de cartes solo original contre une IA — fonctionne hors-ligne.",
         lang: "fr",
-        theme_color: "#4A90E2",
-        background_color: "#E5F0F5",
-        display: "standalone",
+        theme_color: "#0a1730",
+        background_color: "#0a1730",
+        // Fullscreen hides the system status/navigation bars on an installed
+        // PWA (Android) to maximise the play surface; standalone is the
+        // graceful fallback where fullscreen isn't honoured.
+        display: "fullscreen",
+        display_override: ["fullscreen", "standalone"],
         orientation: "portrait",
         icons: [
           { src: "pwa-192x192.png", sizes: "192x192", type: "image/png" },
