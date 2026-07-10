@@ -38,6 +38,16 @@ export type Difficulty = "easy" | "normal" | "hard";
  */
 export type GameMode = "solo" | "duo";
 
+/**
+ * How a two-human game is laid out on the shared device. Purely a display
+ * preference — it never affects the game rules.
+ * "pass" — "passe le téléphone": the active player always takes the bottom of
+ *          the screen; the board flips as play changes hands.
+ * "face" — "face à face": each player keeps a fixed side of the device with
+ *          their grid oriented toward them (the far side is rotated 180°).
+ */
+export type DuoLayout = "pass" | "face";
+
 export interface PlayerState {
   id: string;
   name: string;

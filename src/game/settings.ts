@@ -1,4 +1,4 @@
-import { Difficulty, GameMode } from "./types";
+import { Difficulty, DuoLayout, GameMode } from "./types";
 
 // User settings, persisted locally. No account, no server — a single JSON blob
 // in localStorage keyed per concern.
@@ -8,6 +8,8 @@ export interface Settings {
   playerName: string;
   /** Second human's name, used in duo (two-players-on-one-device) mode. */
   player2Name: string;
+  /** On-device layout for duo games (pass-the-phone vs. face-to-face). */
+  duoLayout: DuoLayout;
   difficulty: Difficulty;
   sound: boolean;
   haptics: boolean;
@@ -19,6 +21,7 @@ export const DEFAULT_SETTINGS: Settings = {
   mode: "solo",
   playerName: "",
   player2Name: "",
+  duoLayout: "pass",
   difficulty: "normal",
   sound: true,
   haptics: true,
