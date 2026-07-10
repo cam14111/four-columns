@@ -23,9 +23,9 @@ export const Rules = () => (
     <Section title="But du jeu">
       <p>
         Chaque manche, obtenez le plus petit total de cartes possible. La partie
-        se joue en plusieurs manches ; dès qu'un joueur atteint{" "}
-        <strong>100 points</strong>, la partie s'arrête et le plus petit total
-        l'emporte.
+        se joue en plusieurs manches ; dès qu'un joueur atteint la{" "}
+        <strong>limite de score</strong> (100 points par défaut, réglable dans
+        les réglages), la partie s'arrête et le plus petit total l'emporte.
       </p>
     </Section>
 
@@ -61,7 +61,9 @@ export const Rules = () => (
       <p>
         Si les <strong>3 cartes d'une colonne</strong> sont identiques et visibles,
         elles sont <strong>défaussées</strong> : la colonne disparaît et ne compte plus
-        rien. Une excellente façon d'effacer de grosses valeurs !
+        rien. Une excellente façon d'effacer de grosses valeurs ! Cela vaut
+        aussi pour les colonnes complétées par la <strong>révélation finale</strong> en
+        fin de manche.
       </p>
     </Section>
 

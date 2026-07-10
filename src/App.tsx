@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { useGame } from "./hooks/useGame";
+import { loadSavedGame } from "./game/persistence";
 import { loadSettings, saveSettings, Settings } from "./game/settings";
 import { resetStats, loadStats, Stats } from "./game/stats";
 import { setSoundEnabled, primeAudio } from "./lib/sound";
@@ -21,15 +22,24 @@ const AppInner = () => {
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
   const [screen, setScreen] = useState<Screen>("home");
   const [panel, setPanel] = useState<PanelKind>(null);
-  const [started, setStarted] = useState(false);
+  // A game saved by a previous session (reload, PWA killed by the OS) can be
+  // resumed exactly where it left off.
+  const restored = useMemo(() => loadSavedGame(), []);
+  const [started, setStarted] = useState(restored !== null);
   const [statsView, setStatsView] = useState<Stats>(() => loadStats());
 
-  const { game, stats, aiThinking, dispatch, newGame, nextRound } = useGame({
-    mode: settings.mode,
-    playerName: settings.playerName,
-    player2Name: settings.player2Name,
-    difficulty: settings.difficulty,
-  });
+  const { game, stats, aiThinking, dispatch, newGame, nextRound } = useGame(
+    {
+      mode: settings.mode,
+      playerName: settings.playerName,
+      player2Name: settings.player2Name,
+      difficulty: settings.difficulty,
+      scoreLimit: settings.scoreLimit,
+    },
+    restored,
+    // Freeze the game (AI loop, ambient cues) while the board is off screen.
+    screen !== "game"
+  );
 
   // The game uses a fixed dark "table" aesthetic; force the dark token set so
   // shadcn surfaces (dialogs, inputs, switches) match.
@@ -58,6 +68,7 @@ const AppInner = () => {
       playerName: settings.playerName,
       player2Name: settings.player2Name,
       difficulty: settings.difficulty,
+      scoreLimit: settings.scoreLimit,
     });
     setStarted(true);
     setPanel(null);
@@ -68,12 +79,22 @@ const AppInner = () => {
     settings.playerName,
     settings.player2Name,
     settings.difficulty,
+    settings.scoreLimit,
   ]);
 
-  const openPanel = useCallback((p: PanelKind) => {
+  // Where the current sub-panel was opened from: closing Rules/Stats/Settings
+  // returns to the in-game menu only when it was reached through that menu.
+  const [panelOrigin, setPanelOrigin] = useState<"home" | "menu">("home");
+
+  const openPanel = useCallback((p: PanelKind, origin: "home" | "menu") => {
     setStatsView(loadStats());
+    setPanelOrigin(origin);
     setPanel(p);
   }, []);
+
+  const closeSubPanel = useCallback(() => {
+    setPanel(panelOrigin === "menu" ? "menu" : null);
+  }, [panelOrigin]);
 
   const hasSavedGame =
     started && game.phase !== "gameOver";
@@ -96,7 +117,7 @@ const AppInner = () => {
             primeAudio();
             setScreen("game");
           }}
-          onOpen={openPanel}
+          onOpen={(p) => openPanel(p, "home")}
         />
       ) : (
         <>
@@ -127,7 +148,7 @@ const AppInner = () => {
           <Menu
             onResume={() => setPanel(null)}
             onNewGame={startNewGame}
-            onOpen={(p) => openPanel(p)}
+            onOpen={(p) => openPanel(p, "menu")}
             onHome={() => {
               setPanel(null);
               setScreen("home");
@@ -136,12 +157,12 @@ const AppInner = () => {
         </Panel>
       )}
       {panel === "rules" && (
-        <Panel title="Comment jouer" onClose={() => setPanel(started ? "menu" : null)}>
+        <Panel title="Comment jouer" onClose={closeSubPanel}>
           <Rules />
         </Panel>
       )}
       {panel === "stats" && (
-        <Panel title="Statistiques" onClose={() => setPanel(started ? "menu" : null)}>
+        <Panel title="Statistiques" onClose={closeSubPanel}>
           <StatsScreen
             stats={statsView}
             onReset={() => setStatsView(resetStats())}
@@ -149,7 +170,7 @@ const AppInner = () => {
         </Panel>
       )}
       {panel === "settings" && (
-        <Panel title="Réglages" onClose={() => setPanel(started ? "menu" : null)}>
+        <Panel title="Réglages" onClose={closeSubPanel}>
           <SettingsScreen settings={settings} onChange={patchSettings} />
         </Panel>
       )}

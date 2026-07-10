@@ -8,6 +8,7 @@ import {
   reduce,
 } from "@/game/engine";
 import { GameAction, GameState } from "@/game/types";
+import { saveGame } from "@/game/persistence";
 import {
   loadStats,
   recordGame,
@@ -37,14 +38,54 @@ export interface UseGame {
   nextRound: () => void;
 }
 
-export const useGame = (initial: CreateGameOptions): UseGame => {
-  const [game, setGame] = useState<GameState>(() => createGame(initial));
+export const useGame = (
+  initial: CreateGameOptions,
+  restored?: GameState | null,
+  /**
+   * True while the board is not on screen (home, panels). Pauses the AI loop
+   * and ambient cues so a restored or backgrounded game never plays itself —
+   * or buzzes the phone — behind the menu.
+   */
+  paused = false
+): UseGame => {
+  const [game, setGame] = useState<GameState>(
+    () => restored ?? createGame(initial)
+  );
   const [stats, setStats] = useState<Stats>(() => loadStats());
   const [aiThinking, setAiThinking] = useState(false);
 
   const processed = useRef<unknown>(null);
   const columnsThisRound = useRef(0);
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevTurn = useRef<number | null>(null);
+
+  // Persist so an in-progress game survives a reload or the OS killing the
+  // PWA. The AI's intra-turn micro-states (decide/replace/flip) are skipped —
+  // resuming at the AI's turn boundary just lets it retake the turn — which
+  // avoids a synchronous localStorage write per AI micro-action. Cleared
+  // automatically once the game is over.
+  useEffect(() => {
+    const aiMidTurn =
+      game.players[game.currentPlayer]?.isAI &&
+      (game.phase === "decide" ||
+        game.phase === "replace" ||
+        game.phase === "flip");
+    if (aiMidTurn) return;
+    saveGame(game);
+  }, [game]);
+
+  // Soft cue when the turn comes (back) to a human — the moment you need to
+  // look up from whatever you were doing, or pass the phone in duo.
+  useEffect(() => {
+    const prev = prevTurn.current;
+    prevTurn.current = game.currentPlayer;
+    if (paused) return;
+    if (prev === null || prev === game.currentPlayer) return;
+    if (game.phase !== "draw") return;
+    if (game.players[game.currentPlayer].isAI) return;
+    playSound("turn");
+    vibrate("light");
+  }, [game, paused]);
 
   // --- Side effects driven by the events of the latest transition -----------
   useEffect(() => {
@@ -118,7 +159,7 @@ export const useGame = (initial: CreateGameOptions): UseGame => {
       game.phase === "replace" ||
       game.phase === "flip";
 
-    if (!current?.isAI || !actionable) {
+    if (paused || !current?.isAI || !actionable) {
       setAiThinking(false);
       return;
     }
@@ -133,7 +174,7 @@ export const useGame = (initial: CreateGameOptions): UseGame => {
     return () => {
       if (aiTimer.current) clearTimeout(aiTimer.current);
     };
-  }, [game]);
+  }, [game, paused]);
 
   const dispatch = useCallback(
     (action: GameAction) => {

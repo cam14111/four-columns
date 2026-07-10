@@ -11,9 +11,13 @@ export interface Settings {
   /** On-device layout for duo games (pass-the-phone vs. face-to-face). */
   duoLayout: DuoLayout;
   difficulty: Difficulty;
+  /** Total at which the game ends (applies to the next game). */
+  scoreLimit: number;
   sound: boolean;
   haptics: boolean;
 }
+
+export const SCORE_LIMITS = [50, 100, 150] as const;
 
 const KEY = "four-columns:settings";
 
@@ -23,6 +27,7 @@ export const DEFAULT_SETTINGS: Settings = {
   player2Name: "",
   duoLayout: "pass",
   difficulty: "normal",
+  scoreLimit: 100,
   sound: true,
   haptics: true,
 };

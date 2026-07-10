@@ -61,14 +61,17 @@ export interface PlayerState {
   roundScores: number[];
 }
 
-export type GamePhase =
-  | "setup" // players are revealing their two initial cards
-  | "draw" // current player must draw from deck or discard
-  | "decide" // a card was drawn from the deck: keep or discard it
-  | "replace" // player must pick a grid slot to place the held card
-  | "flip" // player discarded the drawn card: pick a face-down card to flip
-  | "roundOver" // the round finished; scores computed
-  | "gameOver"; // a player passed the score limit; game finished
+export const ALL_PHASES = [
+  "setup", // players are revealing their two initial cards
+  "draw", // current player must draw from deck or discard
+  "decide", // a card was drawn from the deck: keep or discard it
+  "replace", // player must pick a grid slot to place the held card
+  "flip", // player discarded the drawn card: pick a face-down card to flip
+  "roundOver", // the round finished; scores computed
+  "gameOver", // a player passed the score limit; game finished
+] as const;
+
+export type GamePhase = (typeof ALL_PHASES)[number];
 
 /** Where the currently held card came from (affects the legal choices). */
 export type HeldSource = "deck" | "discard" | null;

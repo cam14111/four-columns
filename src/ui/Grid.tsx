@@ -1,7 +1,52 @@
-import { PlayerState } from "@/game/types";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Card, Grid as GridCards, PlayerState } from "@/game/types";
 import { visibleScore } from "@/game/engine";
 import { cn } from "@/lib/utils";
+import { CLEAR_ANIMATION_MS } from "./theme";
 import { PlayingCard } from "./PlayingCard";
+
+/**
+ * When a column is cleared the engine nulls the slots instantly; keeping the
+ * just-removed cards around as short-lived "ghosts" lets them play the
+ * clear-out animation instead of vanishing abruptly.
+ */
+const useClearGhosts = (playerId: string, grid: GridCards) => {
+  const prev = useRef<{ playerId: string; grid: GridCards } | null>(null);
+  const [ghosts, setGhosts] = useState<Record<number, Card>>({});
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Layout effect: the ghost must be in place before the browser paints the
+  // post-clear frame, or the empty slot flashes for one frame first.
+  useLayoutEffect(() => {
+    const last = prev.current;
+    prev.current = { playerId, grid };
+    // In duo pass-the-phone the same Grid slot swaps players; only diff grids
+    // belonging to the same player, and never let a departing player's ghosts
+    // linger into the incoming player's board.
+    if (!last || last.playerId !== playerId) {
+      setGhosts((g) => (Object.keys(g).length ? {} : g));
+      return;
+    }
+    const cleared: Record<number, Card> = {};
+    grid.forEach((c, i) => {
+      const old = last.grid[i];
+      if (c === null && old) cleared[i] = old;
+    });
+    if (Object.keys(cleared).length === 0) return;
+    setGhosts((g) => ({ ...g, ...cleared }));
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setGhosts({}), CLEAR_ANIMATION_MS);
+  }, [playerId, grid]);
+
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    []
+  );
+
+  return ghosts;
+};
 
 interface GridProps {
   player: PlayerState;
@@ -22,6 +67,7 @@ export const Grid = ({
   active,
   dealKey = 0,
 }: GridProps) => {
+  const ghosts = useClearGhosts(player.id, player.grid);
   return (
     <div
       className={cn(
@@ -32,19 +78,28 @@ export const Grid = ({
       )}
     >
       <div className="grid grid-cols-4 gap-1.5 place-items-center">
-        {player.grid.map((card, index) => (
-          <PlayingCard
-            key={`${dealKey}-${index}`}
-            card={card}
-            size={size}
-            dealDelay={card ? index * 35 : undefined}
-            selectable={selectableIndex?.(index) ?? false}
-            disabled={disabled}
-            onClick={
-              onCardClick && !disabled ? () => onCardClick(index) : undefined
-            }
-          />
-        ))}
+        {player.grid.map((card, index) =>
+          card === null && ghosts[index] ? (
+            <PlayingCard
+              key={`${dealKey}-${index}-ghost`}
+              card={{ ...ghosts[index], faceUp: true }}
+              size={size}
+              clearing
+            />
+          ) : (
+            <PlayingCard
+              key={`${dealKey}-${index}`}
+              card={card}
+              size={size}
+              dealDelay={card ? index * 35 : undefined}
+              selectable={selectableIndex?.(index) ?? false}
+              disabled={disabled}
+              onClick={
+                onCardClick && !disabled ? () => onCardClick(index) : undefined
+              }
+            />
+          )
+        )}
       </div>
     </div>
   );
