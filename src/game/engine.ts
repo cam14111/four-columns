@@ -247,6 +247,29 @@ export const endRound = (state: GameState): GameState => {
     grid: p.grid.map((c) => (c ? { ...c, faceUp: true } : null)),
   }));
 
+  // The final reveal can complete columns of three identical cards; official
+  // rules discard them exactly as during play, before any scoring.
+  state.players.forEach((p, playerIndex) => {
+    let grid = p.grid;
+    for (let col = 0; col < COLS; col++) {
+      const idxs = columnIndices(col);
+      const cards = idxs.map((i) => grid[i]);
+      if (!cards.every((c): c is Card => c !== null)) continue;
+      const value = cards[0].value;
+      if (!cards.every((c) => c.value === value)) continue;
+      grid = grid.slice();
+      for (const i of idxs) grid[i] = null;
+      for (const c of cards) state.discard.unshift({ ...c, faceUp: true });
+      state.events.push({
+        type: "columnCleared",
+        player: playerIndex,
+        column: col,
+        value,
+      });
+    }
+    if (grid !== p.grid) setGrid(state, playerIndex, grid);
+  });
+
   const rawScores = state.players.map((p) => gridScore(p.grid));
   const closerScore = rawScores[closedBy];
   const minOther = Math.min(

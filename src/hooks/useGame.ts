@@ -8,6 +8,7 @@ import {
   reduce,
 } from "@/game/engine";
 import { GameAction, GameState } from "@/game/types";
+import { saveGame } from "@/game/persistence";
 import {
   loadStats,
   recordGame,
@@ -37,14 +38,38 @@ export interface UseGame {
   nextRound: () => void;
 }
 
-export const useGame = (initial: CreateGameOptions): UseGame => {
-  const [game, setGame] = useState<GameState>(() => createGame(initial));
+export const useGame = (
+  initial: CreateGameOptions,
+  restored?: GameState | null
+): UseGame => {
+  const [game, setGame] = useState<GameState>(
+    () => restored ?? createGame(initial)
+  );
   const [stats, setStats] = useState<Stats>(() => loadStats());
   const [aiThinking, setAiThinking] = useState(false);
 
   const processed = useRef<unknown>(null);
   const columnsThisRound = useRef(0);
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevTurn = useRef<number | null>(null);
+
+  // Persist every transition so an in-progress game survives a reload or the
+  // OS killing the PWA. Cleared automatically once the game is over.
+  useEffect(() => {
+    saveGame(game);
+  }, [game]);
+
+  // Soft cue when the turn comes (back) to a human — the moment you need to
+  // look up from whatever you were doing, or pass the phone in duo.
+  useEffect(() => {
+    const prev = prevTurn.current;
+    prevTurn.current = game.currentPlayer;
+    if (prev === null || prev === game.currentPlayer) return;
+    if (game.phase !== "draw") return;
+    if (game.players[game.currentPlayer].isAI) return;
+    playSound("turn");
+    vibrate("light");
+  }, [game]);
 
   // --- Side effects driven by the events of the latest transition -----------
   useEffect(() => {

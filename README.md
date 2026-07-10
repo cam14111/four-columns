@@ -14,9 +14,12 @@ obtenir le plus petit total possible.
 ## Fonctionnalités
 
 - **Moteur de jeu pur et testé** (`src/game/`) : toutes les règles (mise en
-  place, pioche/défausse, remplacement, colonnes identiques, dernier tour,
-  doublement du score) vivent dans un réducteur pur, couvert par des tests
-  unitaires.
+  place, pioche/défausse, remplacement, colonnes identiques — y compris celles
+  complétées par la révélation de fin de manche —, dernier tour, doublement du
+  score) vivent dans un réducteur pur, couvert par des tests unitaires.
+- **Reprise de partie** : la partie en cours est sauvegardée localement à
+  chaque coup et survit à un rechargement ou à la fermeture de la PWA par
+  l'OS (« Reprendre la partie » sur l'écran d'accueil).
 - **IA à 3 niveaux** (Facile / Normal / Expert) fondée sur un modèle de valeur
   espérée, avec conscience de fin de manche en mode Expert.
 - **Mode 2 joueurs local** (deux humains sur un seul appareil), avec deux
@@ -50,8 +53,9 @@ obtenir le plus petit total possible.
 L'application n'a **pas de base de données**. Tout est conservé localement via
 **`localStorage`** :
 
-- `four-columns:settings` — nom, difficulté, sons, vibrations.
+- `four-columns:settings` — nom, difficulté, limite de score, sons, vibrations.
 - `four-columns:stats` — statistiques cumulées.
+- `four-columns:game` — partie en cours (reprise après rechargement).
 
 Tout fonctionne hors-ligne, gratuitement, sur un seul appareil. Aucune donnée
 n'est envoyée à un serveur.

@@ -4,6 +4,7 @@ import {
   columnIndices,
   createGame,
   dealNextRound,
+  endRound,
   gridScore,
   isGridFullyRevealed,
   reduce,
@@ -270,6 +271,53 @@ describe("round scoring", () => {
       s = reduce(s, a);
     }
     expect(s.phase).toBe("gameOver");
+  });
+});
+
+describe("end-of-round reveal clears completed columns", () => {
+  // endRound mutates its argument (it expects a cloned state) — give it one.
+  const cloned = (s: GameState): GameState => ({
+    ...s,
+    players: s.players.map((p) => ({ ...p, grid: p.grid.slice() })),
+    deck: s.deck.slice(),
+    discard: s.discard.slice(),
+    events: [],
+  });
+
+  it("a column completed by the final reveal is discarded before scoring", () => {
+    // Human closed with 4. AI holds a hidden 9 completing column 0 (9,9,9);
+    // other columns are mixed. Raw sum 63, minus the cleared 27 = 36.
+    const humanGrid = gridFrom([1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
+    const aiGrid = gridFrom([9, 5, 6, 7, 9, 8, 4, 3, 9, 2, 1, 0]);
+    aiGrid[8] = card(9, false);
+    const s = cloned(draftGame(humanGrid, aiGrid, { closedBy: 0 }));
+    const r = endRound(s);
+
+    expect(columnIndices(0).every((i) => r.players[1].grid[i] === null)).toBe(true);
+    expect(r.players[1].lastRoundScore).toBe(36);
+    expect(r.players[0].lastRoundScore).toBe(4); // 4 < 36 -> no penalty
+    expect(
+      r.events.some((e) => e.type === "columnCleared" && e.player === 1)
+    ).toBe(true);
+    // The three 9s went to the discard pile.
+    expect(r.discard.filter((c) => c.value === 9).length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("an opponent's reveal-clear counts before the doubling penalty", () => {
+    // Closer sits at 9. The opponent's hidden 12 completes a 12,12,12 column:
+    // 39 -> 3, now below the closer, so the closer IS doubled (9 -> 18).
+    // Before the fix the opponent scored 39 and the closer kept 9.
+    const humanGrid = gridFrom([4, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0]); // 9
+    const aiGrid = gridFrom([12, 1, 1, 1, 12, 0, 0, 0, 12, 0, 0, 0]);
+    aiGrid[8] = card(12, false);
+    const s = cloned(draftGame(humanGrid, aiGrid, { closedBy: 0 }));
+    const r = endRound(s);
+
+    expect(r.players[1].lastRoundScore).toBe(3);
+    expect(r.players[0].lastRoundScore).toBe(18);
+    expect(
+      r.events.find((e) => e.type === "roundOver" && e.penalized)
+    ).toBeTruthy();
   });
 });
 

@@ -1,4 +1,4 @@
-import { Settings } from "@/game/settings";
+import { SCORE_LIMITS, Settings } from "@/game/settings";
 import { Difficulty } from "@/game/types";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -57,6 +57,26 @@ export const SettingsScreen = ({ settings, onChange }: SettingsScreenProps) => (
             )}
           >
             {DIFFICULTY_LABEL[d]}
+          </button>
+        ))}
+      </div>
+    </Row>
+
+    <Row label="Limite de score" hint="Fin de partie à ce total — prochaine partie">
+      <div className="flex gap-1">
+        {SCORE_LIMITS.map((limit) => (
+          <button
+            key={limit}
+            type="button"
+            onClick={() => onChange({ scoreLimit: limit })}
+            className={cn(
+              "rounded-lg px-2.5 py-1 text-xs font-semibold tabular-nums",
+              settings.scoreLimit === limit
+                ? "bg-amber-300 text-slate-900"
+                : "bg-white/10 text-white/80"
+            )}
+          >
+            {limit}
           </button>
         ))}
       </div>

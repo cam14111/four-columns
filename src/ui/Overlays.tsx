@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { GameState } from "@/game/types";
 import { lowestTotalIndex } from "@/game/engine";
 import { Button } from "@/components/ui/button";
@@ -57,7 +58,20 @@ export const Overlays = ({
   onNewGame,
   onHome,
 }: OverlayProps) => {
-  if (game.phase !== "roundOver" && game.phase !== "gameOver") return null;
+  const over = game.phase === "roundOver" || game.phase === "gameOver";
+  // Hold the panel back for a beat so the final reveal (and any column swept
+  // away by it) is actually seen on the board before the scores slide in.
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (!over) {
+      setShow(false);
+      return;
+    }
+    const t = setTimeout(() => setShow(true), 900);
+    return () => clearTimeout(t);
+  }, [over]);
+
+  if (!over || !show) return null;
 
   const isGameOver = game.phase === "gameOver";
   const duo = game.mode === "duo";

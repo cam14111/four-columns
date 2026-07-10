@@ -87,7 +87,11 @@ export const GameScreen = ({
           onDrawDeck={() => dispatch({ type: "drawFromDeck" })}
           onTakeDiscard={() => dispatch({ type: "takeFromDiscard" })}
         />
-        <div className="min-h-[2rem] rounded-full bg-white/10 px-4 py-1.5 text-center text-sm font-medium text-white/90">
+        <div
+          role="status"
+          aria-live="polite"
+          className="min-h-[2rem] rounded-full bg-white/10 px-4 py-1.5 text-center text-sm font-medium text-white/90"
+        >
           {prompt}
         </div>
         {phase === "decide" && game.held && (
@@ -255,6 +259,8 @@ export const GameScreen = ({
           />
 
           <div
+            role="status"
+            aria-live="polite"
             className={cn(
               "min-h-[2rem] rounded-full px-4 py-1.5 text-center text-sm font-medium transition-colors",
               aiThinking
@@ -264,6 +270,21 @@ export const GameScreen = ({
           >
             {prompt}
           </div>
+
+          {/* Show what the AI drew while it decides/places — watching its pick
+              is half the drama of a card game. */}
+          {game.players[activeIndex].isAI && game.held && (
+            <div className="animate-pop flex items-center gap-2 rounded-full bg-slate-950/70 px-3 py-1.5">
+              <span className="text-xs text-white/80">
+                {game.heldSource === "discard"
+                  ? "L'ordinateur prend la défausse"
+                  : "L'ordinateur a pioché"}
+              </span>
+              <div className="scale-75">
+                <PlayingCard card={{ ...game.held, faceUp: true }} size="sm" />
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Bottom player (interactive) */}

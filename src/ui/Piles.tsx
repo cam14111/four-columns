@@ -53,7 +53,7 @@ export const Piles = ({
           className={cn(
             "rounded-xl transition-transform",
             canTakeDiscard
-              ? "cursor-pointer hover:-translate-y-0.5"
+              ? "cursor-pointer hover:-translate-y-0.5 animate-pulse-ring"
               : "cursor-default"
           )}
         >

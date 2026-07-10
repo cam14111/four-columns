@@ -26,16 +26,20 @@ const DIFFS: Difficulty[] = ["easy", "normal", "hard"];
 const HeroFan = () => (
   <div className="relative mx-auto mb-2 flex h-24 w-40 items-end justify-center">
     {([-2, 5, 11] as CardValue[]).map((v, i) => (
+      // Static fan transform on the outer element, deal animation on an inner
+      // one — the animation also drives `transform`, so sharing an element
+      // would override the fan spread until the animation finished.
       <div
         key={v}
-        className="absolute animate-deal"
+        className="absolute"
         style={{
           transform: `translateX(${(i - 1) * 44}px) rotate(${(i - 1) * 10}deg)`,
-          animationDelay: `${i * 90}ms`,
           zIndex: i,
         }}
       >
-        <PlayingCard card={{ id: `h${v}`, value: v, faceUp: true }} size="md" />
+        <div className="animate-deal" style={{ animationDelay: `${i * 90}ms` }}>
+          <PlayingCard card={{ id: `h${v}`, value: v, faceUp: true }} size="md" />
+        </div>
       </div>
     ))}
   </div>
