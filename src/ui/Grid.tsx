@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Card, Grid as GridCards, PlayerState } from "@/game/types";
 import { visibleScore } from "@/game/engine";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,9 @@ const useClearGhosts = (playerId: string, grid: GridCards) => {
   const [ghosts, setGhosts] = useState<Record<number, Card>>({});
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
+  // Layout effect: the ghost must be in place before the browser paints the
+  // post-clear frame, or the empty slot flashes for one frame first.
+  useLayoutEffect(() => {
     const last = prev.current;
     prev.current = { playerId, grid };
     // In duo pass-the-phone the same Grid slot swaps players; only diff grids

@@ -45,7 +45,11 @@ export const isValidGameState = (value: unknown): value is GameState => {
     g.currentPlayer < 2 &&
     typeof g.round === "number" &&
     typeof g.scoreLimit === "number" &&
-    typeof g.rngState === "number"
+    typeof g.rngState === "number" &&
+    // A decide/replace phase without a held card would soft-lock the game
+    // (placeAt/keep are no-ops when nothing is held).
+    (!(g.phase === "decide" || g.phase === "replace") ||
+      (!!g.held && typeof g.held.value === "number"))
   );
 };
 
