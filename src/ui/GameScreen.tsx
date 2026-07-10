@@ -24,8 +24,9 @@ import { cn } from "@/lib/utils";
 //             spotlit and summarised. All inputs are naturally inert (it is no
 //             longer their turn).
 //   cover   — the opaque hand-off screen fades in over the board.
-//   ready   — the board swaps perspective *behind* the cover; the incoming
-//             player taps to continue.
+//   ready   — the board swaps perspective *behind* the cover; the overlay
+//             stays up long enough to be read, then leaves on its own (a tap
+//             skips ahead).
 //   leaving — the cover fades out, revealing a board already facing them.
 
 type HandoffStage = "linger" | "cover" | "ready" | "leaving" | null;
@@ -33,6 +34,9 @@ type HandoffStage = "linger" | "cover" | "ready" | "leaving" | null;
 const LINGER_PLAY_MS = 1350;
 const LINGER_SETUP_MS = 750;
 const COVER_MS = 300;
+// How long the hand-off screen stays once readable: enough to hand the phone
+// over and read who plays + what just happened, without stalling the game.
+const READY_MS = 1900;
 const LEAVE_MS = 200;
 
 interface PassHandoff {
@@ -104,14 +108,18 @@ const usePassHandoff = (game: GameState, enabled: boolean): PassHandoff => {
     return () => clearTimeout(t);
   }, [enabled, game.currentPlayer, game.phase]);
 
-  // Timed stage transitions: swap the board once fully covered; drop the
-  // overlay once its exit fade finishes.
+  // Timed stage transitions: swap the board once fully covered; leave on our
+  // own after a readable beat; drop the overlay once its exit fade finishes.
   useEffect(() => {
     if (stage === "cover") {
       const t = setTimeout(() => {
         setViewIndex(currentRef.current);
         setStage("ready");
       }, COVER_MS);
+      return () => clearTimeout(t);
+    }
+    if (stage === "ready") {
+      const t = setTimeout(() => setStage("leaving"), READY_MS);
       return () => clearTimeout(t);
     }
     if (stage === "leaving") {

@@ -9,7 +9,7 @@ interface HandoffOverlayProps {
   hint: string | null;
   /** The incoming player is on the round's final turn. */
   finalTurn: boolean;
-  /** Overlay accepts the "continue" tap (board swap behind it is done). */
+  /** Board swap behind the overlay is done; a tap now skips the wait. */
   ready: boolean;
   /** Overlay is fading out. */
   leaving: boolean;
@@ -20,7 +20,8 @@ interface HandoffOverlayProps {
  * Full-screen "passe le téléphone" interstitial. It is intentionally opaque:
  * the board flips to the incoming player's perspective *behind* it, so the
  * outgoing player's result stays on screen right up to the cover, and the
- * incoming player uncovers a board already facing them.
+ * incoming player uncovers a board already facing them. It leaves on its own
+ * after a readable beat; tapping it just skips ahead.
  */
 export const HandoffOverlay = ({
   name,
@@ -37,7 +38,7 @@ export const HandoffOverlay = ({
       leaving ? "handoff-backdrop-leave" : "handoff-backdrop"
     )}
     role="button"
-    aria-label={`Passe le téléphone à ${name}. Touche l'écran pour continuer.`}
+    aria-label={`Passe le téléphone à ${name}.`}
     tabIndex={0}
     onClick={ready && !leaving ? onContinue : undefined}
     onKeyDown={
@@ -73,8 +74,5 @@ export const HandoffOverlay = ({
         <p className="max-w-xs text-sm leading-relaxed text-white/70">{hint}</p>
       )}
     </div>
-    <span className="animate-tap-hint text-sm font-medium text-white/80">
-      Touche l'écran pour continuer
-    </span>
   </div>
 );

@@ -247,19 +247,6 @@
 .animate-handoff-card {
   animation: handoff-card 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) 0.08s backwards;
 }
-@keyframes tap-hint {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-.animate-tap-hint {
-  animation: tap-hint 1.6s ease-in-out infinite;
-}
-
 /* ---- Face-to-face duel ----------------------------------------------------- */
 /* Grid scales for the active (large) and idle (small) boards. Tuned down on
    short viewports so both boards + the centre table always fit. */
@@ -368,8 +355,7 @@
   .animate-pulse-ring,
   .animate-last-action,
   .animate-board-in,
-  .animate-handoff-card,
-  .animate-tap-hint {
+  .animate-handoff-card {
     animation: none !important;
   }
   .flip-transition,
