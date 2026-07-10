@@ -104,6 +104,12 @@ const AppInner = () => {
             game={game}
             aiThinking={aiThinking}
             dispatch={dispatch}
+            duoLayout={settings.duoLayout}
+            onToggleLayout={() =>
+              patchSettings({
+                duoLayout: settings.duoLayout === "pass" ? "face" : "pass",
+              })
+            }
             onOpenMenu={() => setPanel("menu")}
           />
           <Overlays

@@ -19,9 +19,13 @@ obtenir le plus petit total possible.
   unitaires.
 - **IA à 3 niveaux** (Facile / Normal / Expert) fondée sur un modèle de valeur
   espérée, avec conscience de fin de manche en mode Expert.
-- **Mode 2 joueurs local** (« chacun son tour » sur un seul appareil) : la grille
-  du joueur actif passe en bas de l'écran, agrandie et jouable, et bascule
-  automatiquement à l'autre joueur quand le tour change.
+- **Mode 2 joueurs local** (deux humains sur un seul appareil), avec deux
+  affichages permutables **en cours de partie** via un bouton sur le plateau :
+  - *Passe le téléphone* : la grille du joueur actif passe en bas de l'écran,
+    agrandie et jouable, et bascule automatiquement quand le tour change.
+  - *Face à face* : chaque joueur garde un côté fixe de l'appareil, sa grille
+    orientée vers lui (la moitié adverse est pivotée à 180°), et la pioche/
+    défausse s'affiche dans le sens du joueur dont c'est le tour.
 - **Interface mobile-first** : grille du joueur à portée du pouce, animations de
   distribution et de retournement 3D, surbrillance des cibles jouables,
   indicateur de « dernier tour ».
