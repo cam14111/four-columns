@@ -179,6 +179,41 @@ describe("drawing and replacing", () => {
   });
 });
 
+describe("move events", () => {
+  it("placing a card emits cardPlaced with both values", () => {
+    let s = draftGame(
+      [card(12), ...Array.from({ length: 11 }, () => card(5, false))],
+      Array.from({ length: 12 }, () => card(5, false))
+    );
+    s = { ...s, phase: "replace", held: card(3), heldSource: "deck" };
+    s = reduce(s, { type: "placeAt", index: 0 });
+    expect(s.events).toContainEqual({
+      type: "cardPlaced",
+      player: 0,
+      index: 0,
+      placed: 3,
+      replaced: 12,
+    });
+  });
+
+  it("flipping a card emits cardFlipped with the revealed value", () => {
+    const humanGrid = gridFrom([3, 4, 7, 8, 5, 6, 9, 10, 2, 1, 0, 11]);
+    humanGrid[5] = card(6, false);
+    let s = draftGame(
+      humanGrid,
+      Array.from({ length: 12 }, () => card(5, false)),
+      { phase: "flip" }
+    );
+    s = reduce(s, { type: "flipAt", index: 5 });
+    expect(s.events).toContainEqual({
+      type: "cardFlipped",
+      player: 0,
+      index: 5,
+      value: 6,
+    });
+  });
+});
+
 describe("column clearing", () => {
   it("clears a column of three identical face-up cards", () => {
     // Column 0 = indices 0,4,8. Put 7 at 0 and 4 (face up), 7 hidden at 8.

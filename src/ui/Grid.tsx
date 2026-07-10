@@ -56,6 +56,10 @@ interface GridProps {
   size?: "sm" | "md" | "lg";
   active?: boolean;
   dealKey?: number; // change to retrigger the deal-in animation
+  /** Slot to spotlight as the just-played move (one-shot glow). */
+  highlightIndex?: number | null;
+  /** Bump to replay the highlight glow for a new move. */
+  highlightSeq?: number;
 }
 
 export const Grid = ({
@@ -66,6 +70,8 @@ export const Grid = ({
   size = "md",
   active,
   dealKey = 0,
+  highlightIndex = null,
+  highlightSeq = 0,
 }: GridProps) => {
   const ghosts = useClearGhosts(player.id, player.grid);
   return (
@@ -78,28 +84,37 @@ export const Grid = ({
       )}
     >
       <div className="grid grid-cols-4 gap-1.5 place-items-center">
-        {player.grid.map((card, index) =>
-          card === null && ghosts[index] ? (
-            <PlayingCard
-              key={`${dealKey}-${index}-ghost`}
-              card={{ ...ghosts[index], faceUp: true }}
-              size={size}
-              clearing
-            />
-          ) : (
-            <PlayingCard
-              key={`${dealKey}-${index}`}
-              card={card}
-              size={size}
-              dealDelay={card ? index * 35 : undefined}
-              selectable={selectableIndex?.(index) ?? false}
-              disabled={disabled}
-              onClick={
-                onCardClick && !disabled ? () => onCardClick(index) : undefined
-              }
-            />
-          )
-        )}
+        {player.grid.map((card, index) => (
+          <div key={`${dealKey}-${index}`} className="relative">
+            {card === null && ghosts[index] ? (
+              <PlayingCard
+                card={{ ...ghosts[index], faceUp: true }}
+                size={size}
+                clearing
+              />
+            ) : (
+              <PlayingCard
+                card={card}
+                size={size}
+                dealDelay={card ? index * 35 : undefined}
+                selectable={selectableIndex?.(index) ?? false}
+                disabled={disabled}
+                onClick={
+                  onCardClick && !disabled
+                    ? () => onCardClick(index)
+                    : undefined
+                }
+              />
+            )}
+            {highlightIndex === index && (
+              <span
+                key={`h${highlightSeq}`}
+                className="animate-last-action pointer-events-none absolute inset-0 z-10 rounded-xl"
+                aria-hidden
+              />
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

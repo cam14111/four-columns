@@ -32,6 +32,13 @@ export const cardGradient = (value: number): string => {
  */
 export const CLEAR_ANIMATION_MS = 600;
 
+// Unscaled Grid footprints (cards + 6px gaps + 10px padding) per card size,
+// used by ScaledBox wrappers to animate/fit the boards responsively.
+export const GRID_DIMS = {
+  sm: { w: 246, h: 248 },
+  md: { w: 286, h: 290 },
+} as const;
+
 export const DIFFICULTY_LABEL: Record<string, string> = {
   easy: "Facile",
   normal: "Normal",

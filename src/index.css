@@ -182,6 +182,175 @@
   animation: pulse-ring 1.6s ease-out infinite;
 }
 
+/* One-shot golden glow spotlighting the card a move just changed. */
+@keyframes last-action {
+  0% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+  }
+  12% {
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.95),
+      0 0 22px 6px rgba(251, 191, 36, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.8),
+      0 0 16px 4px rgba(251, 191, 36, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 0 2px rgba(251, 191, 36, 0),
+      0 0 0 0 rgba(251, 191, 36, 0);
+  }
+}
+.animate-last-action {
+  animation: last-action 1.6s ease-out forwards;
+}
+
+/* Board settling in after the phone changed hands (or on first entry). */
+@keyframes board-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-board-in {
+  animation: board-in 0.38s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+/* ---- "Passe le téléphone" hand-off screen --------------------------------- */
+@keyframes handoff-fade {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+.handoff-backdrop {
+  animation: handoff-fade 0.26s ease-out both;
+}
+.handoff-backdrop-leave {
+  animation: handoff-fade 0.2s ease-in reverse both;
+}
+@keyframes handoff-card {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-handoff-card {
+  animation: handoff-card 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) 0.08s backwards;
+}
+@keyframes tap-hint {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.animate-tap-hint {
+  animation: tap-hint 1.6s ease-in-out infinite;
+}
+
+/* ---- Face-to-face duel ----------------------------------------------------- */
+/* Grid scales for the active (large) and idle (small) boards. Tuned down on
+   short viewports so both boards + the centre table always fit. */
+:root {
+  --face-lg: 1;
+  --face-sm: 0.74;
+}
+@media (max-height: 760px) {
+  :root {
+    --face-lg: 0.92;
+    --face-sm: 0.68;
+  }
+}
+@media (max-height: 700px) {
+  :root {
+    --face-lg: 0.84;
+    --face-sm: 0.6;
+  }
+}
+@media (max-height: 640px) {
+  :root {
+    --face-lg: 0.76;
+    --face-sm: 0.54;
+  }
+}
+@media (max-height: 580px) {
+  :root {
+    --face-lg: 0.66;
+    --face-sm: 0.48;
+  }
+}
+
+/* Board scales for pass-the-phone (and solo): full size on tall screens,
+   stepped down so header + boards + piles always fit without scrolling. The
+   opponent board shrinks first — the active board keeps priority. */
+:root {
+  --pass-top: 0.85;
+  --pass-bottom: 0.97;
+}
+@media (max-height: 810px) {
+  :root {
+    --pass-top: 0.72;
+    --pass-bottom: 0.9;
+  }
+}
+@media (max-height: 760px) {
+  :root {
+    --pass-top: 0.64;
+    --pass-bottom: 0.88;
+  }
+}
+@media (max-height: 720px) {
+  :root {
+    --pass-top: 0.55;
+    --pass-bottom: 0.82;
+  }
+}
+@media (max-height: 680px) {
+  :root {
+    --pass-top: 0.5;
+    --pass-bottom: 0.77;
+  }
+}
+@media (max-height: 650px) {
+  :root {
+    --pass-top: 0.42;
+    --pass-bottom: 0.65;
+  }
+}
+@media (max-height: 600px) {
+  :root {
+    --pass-top: 0.36;
+    --pass-bottom: 0.53;
+  }
+}
+/* The boards trade sizes with a single synchronized ease: the wrapper animates
+   its layout box while the inner board animates the matching scale. */
+.face-swap {
+  transition: width 0.6s cubic-bezier(0.3, 0.7, 0.25, 1),
+    height 0.6s cubic-bezier(0.3, 0.7, 0.25, 1);
+}
+.face-swap-inner {
+  transform-origin: top left;
+  transition: transform 0.6s cubic-bezier(0.3, 0.7, 0.25, 1);
+}
+/* Shared centre table (piles, prompt, actions) turning to face the active
+   player. */
+.table-turn {
+  transition: transform 0.6s cubic-bezier(0.45, 0.05, 0.25, 1);
+}
+
 @keyframes shimmer {
   0% {
     background-position: -200% 0;
@@ -196,10 +365,17 @@
   .animate-pop,
   .animate-clear,
   .animate-float-up,
-  .animate-pulse-ring {
+  .animate-pulse-ring,
+  .animate-last-action,
+  .animate-board-in,
+  .animate-handoff-card,
+  .animate-tap-hint {
     animation: none !important;
   }
-  .flip-transition {
+  .flip-transition,
+  .face-swap,
+  .face-swap-inner,
+  .table-turn {
     transition: none !important;
   }
 }

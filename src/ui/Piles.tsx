@@ -9,7 +9,15 @@ interface PilesProps {
   canTakeDiscard: boolean;
   onDrawDeck: () => void;
   onTakeDiscard: () => void;
+  /** Compact variant for the face-to-face centre table. */
+  size?: "sm" | "md";
 }
+
+// Card footprints per size, used for the stacked-deck look and the empty slot.
+const DIMS = {
+  sm: { w: 52, h: 72 },
+  md: { w: 62, h: 86 },
+} as const;
 
 export const Piles = ({
   deckCount,
@@ -18,9 +26,16 @@ export const Piles = ({
   canTakeDiscard,
   onDrawDeck,
   onTakeDiscard,
+  size = "md",
 }: PilesProps) => {
+  const { w, h } = DIMS[size];
   return (
-    <div className="flex items-center justify-center gap-6">
+    <div
+      className={cn(
+        "flex items-center justify-center",
+        size === "md" ? "gap-6" : "gap-4"
+      )}
+    >
       <div className="flex flex-col items-center gap-1.5">
         <button
           type="button"
@@ -35,9 +50,18 @@ export const Piles = ({
           )}
         >
           {/* stacked look */}
-          <div className="absolute -right-1 -bottom-1 w-[62px] h-[86px] rounded-xl bg-white/10" />
-          <div className="absolute -right-0.5 -bottom-0.5 w-[62px] h-[86px] rounded-xl bg-white/15" />
-          <PlayingCard card={{ id: "deck", value: 0, faceUp: false }} size="md" />
+          <div
+            className="absolute -right-1 -bottom-1 rounded-xl bg-white/10"
+            style={{ width: w, height: h }}
+          />
+          <div
+            className="absolute -right-0.5 -bottom-0.5 rounded-xl bg-white/15"
+            style={{ width: w, height: h }}
+          />
+          <PlayingCard
+            card={{ id: "deck", value: 0, faceUp: false }}
+            size={size}
+          />
         </button>
         <span className="text-[11px] font-medium text-white/70">
           Pioche · {deckCount}
@@ -58,9 +82,12 @@ export const Piles = ({
           )}
         >
           {discardTop ? (
-            <PlayingCard card={{ ...discardTop, faceUp: true }} size="md" />
+            <PlayingCard card={{ ...discardTop, faceUp: true }} size={size} />
           ) : (
-            <div className="w-[62px] h-[86px] rounded-xl border-2 border-dashed border-white/20" />
+            <div
+              className="rounded-xl border-2 border-dashed border-white/20"
+              style={{ width: w, height: h }}
+            />
           )}
         </button>
         <span className="text-[11px] font-medium text-white/70">Défausse</span>

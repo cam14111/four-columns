@@ -385,6 +385,13 @@ export const reduce = (prev: GameState, action: GameAction): GameState => {
       // The replaced card is discarded face-up; the held card takes its place.
       state.discard.unshift({ ...target, faceUp: true });
       grid[action.index] = { ...state.held, faceUp: true };
+      state.events.push({
+        type: "cardPlaced",
+        player,
+        index: action.index,
+        placed: state.held.value,
+        replaced: target.value,
+      });
       const cleared = applyColumnClear(grid, action.index, player);
       setGrid(state, player, cleared.grid);
       if (cleared.event) {
@@ -402,6 +409,12 @@ export const reduce = (prev: GameState, action: GameAction): GameState => {
       const target = grid[action.index];
       if (!target || target.faceUp) return prev;
       grid[action.index] = { ...target, faceUp: true };
+      state.events.push({
+        type: "cardFlipped",
+        player,
+        index: action.index,
+        value: target.value,
+      });
       const cleared = applyColumnClear(grid, action.index, player);
       setGrid(state, player, cleared.grid);
       if (cleared.event) {
