@@ -252,20 +252,15 @@ export const endRound = (state: GameState): GameState => {
   state.players.forEach((p, playerIndex) => {
     let grid = p.grid;
     for (let col = 0; col < COLS; col++) {
-      const idxs = columnIndices(col);
-      const cards = idxs.map((i) => grid[i]);
-      if (!cards.every((c): c is Card => c !== null)) continue;
-      const value = cards[0].value;
-      if (!cards.every((c) => c.value === value)) continue;
-      grid = grid.slice();
-      for (const i of idxs) grid[i] = null;
-      for (const c of cards) state.discard.unshift({ ...c, faceUp: true });
-      state.events.push({
-        type: "columnCleared",
-        player: playerIndex,
-        column: col,
-        value,
-      });
+      // Index `col` is the top slot of that column; every card is face-up
+      // after the reveal, so the regular in-play clear check applies as-is.
+      const cleared = applyColumnClear(grid, col, playerIndex);
+      if (!cleared.event) continue;
+      grid = cleared.grid;
+      for (const c of cleared.cleared) {
+        state.discard.unshift({ ...c, faceUp: true });
+      }
+      state.events.push(cleared.event);
     }
     if (grid !== p.grid) setGrid(state, playerIndex, grid);
   });

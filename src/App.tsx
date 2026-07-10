@@ -36,7 +36,9 @@ const AppInner = () => {
       difficulty: settings.difficulty,
       scoreLimit: settings.scoreLimit,
     },
-    restored
+    restored,
+    // Freeze the game (AI loop, ambient cues) while the board is off screen.
+    screen !== "game"
   );
 
   // The game uses a fixed dark "table" aesthetic; force the dark token set so

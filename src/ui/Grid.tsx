@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Card, Grid as GridCards, PlayerState } from "@/game/types";
 import { visibleScore } from "@/game/engine";
 import { cn } from "@/lib/utils";
+import { CLEAR_ANIMATION_MS } from "./theme";
 import { PlayingCard } from "./PlayingCard";
 
 /**
@@ -20,8 +21,12 @@ const useClearGhosts = (playerId: string, grid: GridCards) => {
     const last = prev.current;
     prev.current = { playerId, grid };
     // In duo pass-the-phone the same Grid slot swaps players; only diff grids
-    // belonging to the same player.
-    if (!last || last.playerId !== playerId) return;
+    // belonging to the same player, and never let a departing player's ghosts
+    // linger into the incoming player's board.
+    if (!last || last.playerId !== playerId) {
+      setGhosts((g) => (Object.keys(g).length ? {} : g));
+      return;
+    }
     const cleared: Record<number, Card> = {};
     grid.forEach((c, i) => {
       const old = last.grid[i];
@@ -30,7 +35,7 @@ const useClearGhosts = (playerId: string, grid: GridCards) => {
     if (Object.keys(cleared).length === 0) return;
     setGhosts((g) => ({ ...g, ...cleared }));
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setGhosts({}), 600);
+    timer.current = setTimeout(() => setGhosts({}), CLEAR_ANIMATION_MS);
   }, [playerId, grid]);
 
   useEffect(

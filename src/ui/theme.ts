@@ -25,6 +25,13 @@ export const cardGradient = (value: number): string => {
   return `linear-gradient(150deg, ${t.from}, ${t.to})`;
 };
 
+/**
+ * How long a cleared card's "ghost" stays on the board playing its exit
+ * animation. The round-over overlay waits a bit longer than this so the final
+ * reveal (and any column it sweeps away) is seen before the scores appear.
+ */
+export const CLEAR_ANIMATION_MS = 600;
+
 export const DIFFICULTY_LABEL: Record<string, string> = {
   easy: "Facile",
   normal: "Normal",

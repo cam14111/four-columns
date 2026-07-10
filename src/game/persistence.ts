@@ -1,4 +1,4 @@
-import { GamePhase, GameState, GRID_SIZE } from "./types";
+import { ALL_PHASES, GameState, GRID_SIZE } from "./types";
 
 // In-progress game persistence. A mobile PWA gets killed and reloaded all the
 // time (backgrounding, OS memory pressure, accidental refresh); saving the
@@ -8,16 +8,6 @@ import { GamePhase, GameState, GRID_SIZE } from "./types";
 
 const KEY = "four-columns:game";
 const VERSION = 1;
-
-const PHASES: GamePhase[] = [
-  "setup",
-  "draw",
-  "decide",
-  "replace",
-  "flip",
-  "roundOver",
-  "gameOver",
-];
 
 /** Structural check so a corrupt/foreign blob can never crash the app. */
 export const isValidGameState = (value: unknown): value is GameState => {
@@ -39,7 +29,7 @@ export const isValidGameState = (value: unknown): value is GameState => {
     ) &&
     Array.isArray(g.deck) &&
     Array.isArray(g.discard) &&
-    PHASES.includes(g.phase) &&
+    (ALL_PHASES as readonly string[]).includes(g.phase) &&
     typeof g.currentPlayer === "number" &&
     g.currentPlayer >= 0 &&
     g.currentPlayer < 2 &&

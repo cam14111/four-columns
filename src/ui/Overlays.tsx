@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { GameState } from "@/game/types";
-import { lowestTotalIndex } from "@/game/engine";
+import { gridScore, lowestTotalIndex } from "@/game/engine";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { CLEAR_ANIMATION_MS } from "./theme";
 import { Confetti } from "./Confetti";
 
 interface OverlayProps {
@@ -67,7 +68,7 @@ export const Overlays = ({
       setShow(false);
       return;
     }
-    const t = setTimeout(() => setShow(true), 900);
+    const t = setTimeout(() => setShow(true), CLEAR_ANIMATION_MS + 300);
     return () => clearTimeout(t);
   }, [over]);
 
@@ -80,10 +81,12 @@ export const Overlays = ({
   const tie =
     game.players.length === 2 &&
     game.players[0].totalScore === game.players[1].totalScore;
-  const penalized = game.events.some(
-    (e) => e.type === "roundOver" && e.penalized
-  );
   const closer = game.closedBy ?? 0;
+  // Derived from state, not from events: a restored game has its events
+  // stripped (they already played their side effects), but the doubled round
+  // score is visible as a mismatch with the closer's still-revealed grid.
+  const penalized =
+    game.players[closer].lastRoundScore !== gridScore(game.players[closer].grid);
 
   // Celebrate a human winner: the human in solo, always in duo (someone won).
   const celebrate = isGameOver && (duo ? !tie : humanWon);
