@@ -109,6 +109,14 @@ export interface GameState {
 
 export type GameEvent =
   | { type: "columnCleared"; player: number; column: number; value: CardValue }
+  | {
+      type: "cardPlaced";
+      player: number;
+      index: number;
+      placed: CardValue;
+      replaced: CardValue;
+    }
+  | { type: "cardFlipped"; player: number; index: number; value: CardValue }
   | { type: "roundClosed"; player: number }
   | { type: "finalTurn"; player: number }
   | { type: "roundOver"; closedBy: number; penalized: boolean }
