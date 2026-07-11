@@ -235,8 +235,11 @@ const main = async () => {
       ? { executablePath }
       : {}
   );
-  const ctxA = await browser.newContext(); // "phone" A (host)
-  const ctxB = await browser.newContext(); // "phone" B (guest)
+  // Real phone-sized viewports — the app is mobile-first and the visual
+  // artifacts should show what players actually see.
+  const phone = { viewport: { width: 390, height: 844 } };
+  const ctxA = await browser.newContext(phone); // "phone" A (host)
+  const ctxB = await browser.newContext(phone); // "phone" B (guest)
   const pageA = await ctxA.newPage();
   const pageB = await ctxB.newPage();
   for (const [name, page] of [["A", pageA], ["B", pageB]]) {

@@ -31,30 +31,49 @@ interface OverlayProps {
 }
 
 /**
+ * Fits two side-by-side boards in the panel whatever the phone width (the
+ * panel is centred at max-w-md; padding and the gap eat ~90px), capped at a
+ * comfortable reading size. Computed in JS because CSS `scale()` needs a
+ * plain number — a calc() of viewport lengths cannot become one.
+ */
+const useBoardScale = (): number => {
+  const compute = () =>
+    Math.min(0.64, (Math.min(window.innerWidth, 448) - 90) / (2 * GRID_DIMS.sm.w));
+  const [scale, setScale] = useState(compute);
+  useEffect(() => {
+    const onResize = () => setScale(compute());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return scale;
+};
+
+/**
  * Both boards in miniature, every card face-up (the engine reveals them when
  * the round is scored) — so the end-of-round panel shows *why* the scores are
  * what they are, without having to peek behind the blurred backdrop.
  */
-const BoardsRecap = ({ game }: { game: GameState }) => (
-  <div className="mb-3 flex items-start justify-center gap-3">
-    {game.players.map((p) => (
-      <div key={p.id} className="flex min-w-0 flex-col items-center gap-1">
-        <span className="max-w-[10rem] truncate text-xs font-semibold text-white/80">
-          {p.name}
-        </span>
-        <ScaledBox
-          width={GRID_DIMS.sm.w}
-          height={GRID_DIMS.sm.h}
-          // Two boards side by side whatever the phone width (panel padding
-          // and the gap eat ~90px), capped at a comfortable reading size.
-          scale="min(0.64, (100vw - 90px) / 492)"
-        >
-          <Grid player={p} size="sm" />
-        </ScaledBox>
-      </div>
-    ))}
-  </div>
-);
+const BoardsRecap = ({ game }: { game: GameState }) => {
+  const scale = useBoardScale();
+  return (
+    <div className="mb-3 flex items-start justify-center gap-3">
+      {game.players.map((p) => (
+        <div key={p.id} className="flex min-w-0 flex-col items-center gap-1">
+          <span className="max-w-[10rem] truncate text-xs font-semibold text-white/80">
+            {p.name}
+          </span>
+          <ScaledBox
+            width={GRID_DIMS.sm.w}
+            height={GRID_DIMS.sm.h}
+            scale={String(scale)}
+          >
+            <Grid player={p} size="sm" />
+          </ScaledBox>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const ScoreTable = ({ game }: { game: GameState }) => {
   const rounds = game.players[0].roundScores.length;
