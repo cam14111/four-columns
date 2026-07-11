@@ -121,13 +121,13 @@ const actOnce = async (page, opts = {}) => {
   if (!s || s.busy) return false;
   // End-of-round panel: press "Manche suivante" once (ready handshake).
   if (autoRounds && s.phase === "roundOver" && !s.nextReady?.me && !s.result) {
+    const btn = page.getByRole("button", { name: "Manche suivante" });
+    if ((await btn.count()) === 0) return false; // reveal delay — not shown yet
     try {
-      await page
-        .getByRole("button", { name: "Manche suivante" })
-        .click({ timeout: 2500 });
+      await btn.click({ timeout: 2000 });
       return true;
     } catch {
-      return false; // panel not shown yet (reveal delay)
+      return false;
     }
   }
   if (!s.myTurn) return false;
