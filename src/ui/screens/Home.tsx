@@ -1,4 +1,12 @@
-import { BarChart3, BookOpen, Play, Settings as SettingsIcon, User, Users } from "lucide-react";
+import {
+  BarChart3,
+  BookOpen,
+  Play,
+  Settings as SettingsIcon,
+  User,
+  Users,
+  Wifi,
+} from "lucide-react";
 import { CardValue, Difficulty, GameMode } from "@/game/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,12 +20,15 @@ interface HomeProps {
   player2Name: string;
   difficulty: Difficulty;
   hasSavedGame: boolean;
+  /** An online duel is in progress on this device (resumable). */
+  hasOnlineSession: boolean;
   onNameChange: (name: string) => void;
   onModeChange: (m: GameMode) => void;
   onPlayer2NameChange: (name: string) => void;
   onDifficultyChange: (d: Difficulty) => void;
   onPlay: () => void;
   onResume: () => void;
+  onResumeOnline: () => void;
   onOpen: (panel: "rules" | "stats" | "settings") => void;
 }
 
@@ -51,15 +62,18 @@ export const Home = ({
   player2Name,
   difficulty,
   hasSavedGame,
+  hasOnlineSession,
   onNameChange,
   onModeChange,
   onPlayer2NameChange,
   onDifficultyChange,
   onPlay,
   onResume,
+  onResumeOnline,
   onOpen,
 }: HomeProps) => {
   const duo = mode === "duo";
+  const online = mode === "online";
   return (
     <div className="app-bg flex min-h-[100dvh] flex-col items-center justify-center px-6 py-8 text-white">
       <div className="w-full max-w-sm">
@@ -68,9 +82,11 @@ export const Home = ({
           4 <span className="text-amber-300">Columns</span>
         </h1>
         <p className="mt-2 text-center text-white/70">
-          {duo
-            ? "Videz vos colonnes, gardez le plus petit total. À deux, sur le même téléphone."
-            : "Videz vos colonnes, gardez le plus petit total. Vous contre l'ordinateur."}
+          {online
+            ? "Videz vos colonnes, gardez le plus petit total. Chacun sur son téléphone."
+            : duo
+              ? "Videz vos colonnes, gardez le plus petit total. À deux, sur le même téléphone."
+              : "Videz vos colonnes, gardez le plus petit total. Vous contre l'ordinateur."}
         </p>
 
         <div className="mt-7 space-y-4 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
@@ -78,9 +94,9 @@ export const Home = ({
             <label className="mb-1.5 block text-xs font-medium text-white/60">
               Mode de jeu
             </label>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-3 gap-1.5">
               <ModeButton
-                active={!duo}
+                active={mode === "solo"}
                 onClick={() => onModeChange("solo")}
                 icon={<User size={16} />}
                 label="Solo"
@@ -89,7 +105,13 @@ export const Home = ({
                 active={duo}
                 onClick={() => onModeChange("duo")}
                 icon={<Users size={16} />}
-                label="2 joueurs"
+                label="À deux"
+              />
+              <ModeButton
+                active={online}
+                onClick={() => onModeChange("online")}
+                icon={<Wifi size={16} />}
+                label="En ligne"
               />
             </div>
           </div>
@@ -107,7 +129,7 @@ export const Home = ({
             />
           </div>
 
-          {duo ? (
+          {duo && (
             <div>
               <label className="mb-1.5 block text-xs font-medium text-white/60">
                 Nom du joueur 2
@@ -120,7 +142,8 @@ export const Home = ({
                 className="border-white/15 bg-white/10 text-white placeholder:text-white/40"
               />
             </div>
-          ) : (
+          )}
+          {mode === "solo" && (
             <div>
               <label className="mb-1.5 block text-xs font-medium text-white/60">
                 Difficulté
@@ -144,10 +167,26 @@ export const Home = ({
               </div>
             </div>
           )}
+          {online && (
+            <p className="text-xs text-white/50">
+              Créez une partie privée et invitez votre adversaire avec un code
+              ou un lien. Aucun compte nécessaire.
+            </p>
+          )}
         </div>
 
         <div className="mt-5 space-y-2">
-          {hasSavedGame && (
+          {hasOnlineSession && (
+            <Button
+              onClick={onResumeOnline}
+              variant="secondary"
+              className="h-12 w-full text-base"
+            >
+              <Wifi className="mr-2" size={18} />
+              Reprendre le duel en ligne
+            </Button>
+          )}
+          {hasSavedGame && !online && (
             <Button
               onClick={onResume}
               variant="secondary"
@@ -161,7 +200,7 @@ export const Home = ({
             className="h-14 w-full bg-amber-300 text-base font-bold text-slate-900 hover:bg-amber-200"
           >
             <Play className="mr-2" size={20} />
-            {hasSavedGame ? "Nouvelle partie" : "Jouer"}
+            {online ? "Jouer en ligne" : hasSavedGame ? "Nouvelle partie" : "Jouer"}
           </Button>
         </div>
 

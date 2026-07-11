@@ -6,8 +6,10 @@ import { loadSettings, saveSettings, Settings } from "./game/settings";
 import { resetStats, loadStats, Stats } from "./game/stats";
 import { setSoundEnabled, primeAudio } from "./lib/sound";
 import { setHapticsEnabled } from "./lib/haptics";
+import { loadOnlineSession } from "./online/session";
 import { Home } from "./ui/screens/Home";
 import { GameScreen } from "./ui/GameScreen";
+import { OnlineIntent, OnlineMode } from "./ui/OnlineMode";
 import { Overlays } from "./ui/Overlays";
 import { Panel } from "./ui/screens/Panel";
 import { Rules } from "./ui/screens/Rules";
@@ -15,22 +17,50 @@ import { StatsScreen } from "./ui/screens/StatsScreen";
 import { SettingsScreen } from "./ui/screens/SettingsScreen";
 import { Menu } from "./ui/screens/Menu";
 
-type Screen = "home" | "game";
+type Screen = "home" | "game" | "online";
 type PanelKind = "rules" | "stats" | "settings" | "menu" | null;
+
+/** ?join=CODE deep link (from a shared invite); read once, then cleaned up. */
+const consumeJoinCode = (): string | null => {
+  try {
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get("join");
+    if (!code) return null;
+    url.searchParams.delete("join");
+    window.history.replaceState(null, "", url.toString());
+    return code;
+  } catch {
+    return null;
+  }
+};
 
 const AppInner = () => {
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
-  const [screen, setScreen] = useState<Screen>("home");
+  // An invite link or an in-progress online duel takes the player straight
+  // back to it — reopening the app mid-duel must land on the board.
+  const [onlineIntent, setOnlineIntent] = useState<OnlineIntent>(() => {
+    const code = consumeJoinCode();
+    if (code) return { type: "join", code };
+    return loadOnlineSession() ? { type: "resume" } : { type: "menu" };
+  });
+  const [screen, setScreen] = useState<Screen>(() =>
+    onlineIntent.type !== "menu" ? "online" : "home"
+  );
   const [panel, setPanel] = useState<PanelKind>(null);
   // A game saved by a previous session (reload, PWA killed by the OS) can be
   // resumed exactly where it left off.
   const restored = useMemo(() => loadSavedGame(), []);
   const [started, setStarted] = useState(restored !== null);
   const [statsView, setStatsView] = useState<Stats>(() => loadStats());
+  const [hasOnlineSession, setHasOnlineSession] = useState(
+    () => loadOnlineSession() !== null
+  );
 
   const { game, stats, aiThinking, dispatch, newGame, nextRound } = useGame(
     {
-      mode: settings.mode,
+      // The local engine hook only ever runs solo/duo games; online games
+      // live in their own screen with their own state pipeline.
+      mode: settings.mode === "online" ? "solo" : settings.mode,
       playerName: settings.playerName,
       player2Name: settings.player2Name,
       difficulty: settings.difficulty,
@@ -63,6 +93,12 @@ const AppInner = () => {
 
   const startNewGame = useCallback(() => {
     primeAudio();
+    if (settings.mode === "online") {
+      setOnlineIntent({ type: "menu" });
+      setPanel(null);
+      setScreen("online");
+      return;
+    }
     newGame({
       mode: settings.mode,
       playerName: settings.playerName,
@@ -99,6 +135,22 @@ const AppInner = () => {
   const hasSavedGame =
     started && game.phase !== "gameOver";
 
+  // Refresh the "online duel in progress" hint whenever we land on Home.
+  useEffect(() => {
+    if (screen === "home") setHasOnlineSession(loadOnlineSession() !== null);
+  }, [screen]);
+
+  if (screen === "online") {
+    return (
+      <OnlineMode
+        settings={settings}
+        patchSettings={patchSettings}
+        intent={onlineIntent}
+        onExit={() => setScreen("home")}
+      />
+    );
+  }
+
   return (
     <>
       {screen === "home" ? (
@@ -108,6 +160,7 @@ const AppInner = () => {
           player2Name={settings.player2Name}
           difficulty={settings.difficulty}
           hasSavedGame={hasSavedGame}
+          hasOnlineSession={hasOnlineSession}
           onNameChange={(playerName) => patchSettings({ playerName })}
           onModeChange={(mode) => patchSettings({ mode })}
           onPlayer2NameChange={(player2Name) => patchSettings({ player2Name })}
@@ -116,6 +169,11 @@ const AppInner = () => {
           onResume={() => {
             primeAudio();
             setScreen("game");
+          }}
+          onResumeOnline={() => {
+            primeAudio();
+            setOnlineIntent({ type: "resume" });
+            setScreen("online");
           }}
           onOpen={(p) => openPanel(p, "home")}
         />
