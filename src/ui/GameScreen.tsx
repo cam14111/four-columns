@@ -135,6 +135,19 @@ const usePassHandoff = (game: GameState, enabled: boolean): PassHandoff => {
 // Game screen
 // ---------------------------------------------------------------------------
 
+/** Online-mode context: who I am, how the table is doing. */
+export interface OnlineViewProps {
+  mySeat: number;
+  opponentOnline: boolean;
+  connected: boolean;
+  /** Round closed; the last face-down cards are being disclosed. */
+  awaitingReveal: boolean;
+  /** A write is in flight — inputs are momentarily locked. */
+  busy: boolean;
+  canClaimVictory: boolean;
+  onClaim: () => void;
+}
+
 interface GameScreenProps {
   game: GameState;
   aiThinking: boolean;
@@ -144,6 +157,8 @@ interface GameScreenProps {
   duoLayout: DuoLayout;
   /** Flip between the two duo layouts (pass-the-phone ↔ face-to-face). */
   onToggleLayout: () => void;
+  /** Present when this board renders an online duel. */
+  online?: OnlineViewProps;
 }
 
 export const GameScreen = ({
@@ -153,8 +168,10 @@ export const GameScreen = ({
   onOpenMenu,
   duoLayout,
   onToggleLayout,
+  online,
 }: GameScreenProps) => {
   const duo = game.mode === "duo";
+  const isOnline = game.mode === "online" && !!online;
   const phase = game.phase;
   const activeIndex = game.currentPlayer;
   const lastMove = useLastMove(game);
@@ -167,12 +184,21 @@ export const GameScreen = ({
     passEnabled
   );
 
+  // Online: inputs are locked while my link is down, while a move is being
+  // written, or during the end-of-round reveal beat.
+  const onlineLocked =
+    isOnline &&
+    (!online.connected || online.busy || online.awaitingReveal);
+
   // Interaction always belongs to the player who owns the grid, and only while
   // it is genuinely their (human) turn. Keying by player index lets both duo
-  // layouts reuse the exact same rules.
+  // layouts — and the online board — reuse the exact same rules.
   const selectableFor = (index: number, playerIndex: number): boolean => {
     if (playerIndex !== activeIndex || aiThinking) return false;
     if (game.players[playerIndex].isAI) return false;
+    if (isOnline && (playerIndex !== online.mySeat || onlineLocked)) {
+      return false;
+    }
     const c = game.players[playerIndex].grid[index];
     if (phase === "setup") return !!c && !c.faceUp;
     if (phase === "replace") return !!c;
@@ -183,6 +209,7 @@ export const GameScreen = ({
   const handleFor = (index: number, playerIndex: number) => {
     if (playerIndex !== activeIndex || aiThinking) return;
     if (game.players[playerIndex].isAI) return;
+    if (isOnline && (playerIndex !== online.mySeat || onlineLocked)) return;
     const c = game.players[playerIndex].grid[index];
     if (!c) return;
     if (phase === "setup" && !c.faceUp) {
@@ -194,7 +221,7 @@ export const GameScreen = ({
     }
   };
 
-  const prompt = getPrompt(game, aiThinking);
+  const prompt = getPrompt(game, aiThinking, online);
 
   // ---- Face-to-face --------------------------------------------------------
   if (duo && duoLayout === "face") {
@@ -212,17 +239,18 @@ export const GameScreen = ({
     );
   }
 
-  // ---- Pass-the-phone (and solo): active player anchored to the bottom ------
+  // ---- Pass-the-phone (solo & online): active player anchored to the bottom -
   // Solo keeps the human anchored at the bottom (the AI never "sits down" at
-  // the phone). Duo hot-seat shows whoever the hand-off machine says (it lags
+  // the phone); online keeps *me* there — the opponent plays on their own
+  // device. Duo hot-seat shows whoever the hand-off machine says (it lags
   // the engine so the outgoing player sees their result before the swap).
-  const bottomIndex = duo ? viewIndex : 0;
+  const bottomIndex = isOnline ? online.mySeat : duo ? viewIndex : 0;
   const topIndex = 1 - bottomIndex;
   const bottomPlayer = game.players[bottomIndex];
   const topPlayer = game.players[topIndex];
 
   const bottomIsCurrent = activeIndex === bottomIndex;
-  const canAct = bottomIsCurrent && !aiThinking;
+  const canAct = bottomIsCurrent && !aiThinking && !onlineLocked;
   // During the linger the *outgoing* player still owns the screen: keep the
   // active styling on their (bottom) board so the eye stays on the result.
   const displayActive = stage === "linger" ? bottomIndex : activeIndex;
@@ -256,7 +284,11 @@ export const GameScreen = ({
             Manche {game.round}
           </span>
           <span className="whitespace-nowrap rounded-full bg-white/10 px-3 py-1 text-xs font-semibold">
-            {duo ? "2 joueurs" : DIFFICULTY_LABEL[game.difficulty]}
+            {isOnline
+              ? "En ligne"
+              : duo
+                ? "2 joueurs"
+                : DIFFICULTY_LABEL[game.difficulty]}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -282,18 +314,56 @@ export const GameScreen = ({
         </div>
       </header>
 
+      {/* Online status strips: my link, then the opponent's presence. */}
+      {isOnline && !online.connected && (
+        <div className="mx-3 mb-1 flex items-center justify-center gap-2 rounded-xl bg-amber-400/15 px-3 py-1.5 text-xs font-semibold text-amber-200 ring-1 ring-amber-300/30">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-amber-300" />
+          Reconnexion…
+        </div>
+      )}
+      {isOnline && online.connected && !online.opponentOnline && (
+        <div className="mx-3 mb-1 flex items-center justify-center gap-3 rounded-xl bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 ring-1 ring-white/10">
+          <span className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-slate-400" />
+            {topPlayer.name} est déconnecté·e…
+          </span>
+          {online.canClaimVictory && (
+            <button
+              type="button"
+              onClick={online.onClaim}
+              className="rounded-full bg-amber-300 px-3 py-1 text-[11px] font-bold text-slate-900 hover:bg-amber-200"
+            >
+              Réclamer la victoire
+            </button>
+          )}
+        </div>
+      )}
+
       <main
         key={duo ? `view-${viewIndex}-r${revealSeq}` : "solo"}
         className="animate-board-in flex flex-1 flex-col justify-between gap-2 px-3 pb-2"
       >
         {/* Opponent / other player */}
         <section className="flex flex-col items-center gap-1.5">
-          <PlayerBadge
-            player={topPlayer}
-            active={displayActive === topIndex && phase !== "roundOver"}
-            finalTurn={topFinalTurn}
-            live
-          />
+          <div className="flex items-center gap-2">
+            <PlayerBadge
+              player={topPlayer}
+              active={displayActive === topIndex && phase !== "roundOver"}
+              finalTurn={topFinalTurn}
+              live
+            />
+            {isOnline && (
+              <span
+                className={cn(
+                  "h-2.5 w-2.5 rounded-full ring-2 ring-slate-950/50",
+                  online.opponentOnline ? "bg-emerald-400" : "bg-slate-500"
+                )}
+                aria-label={
+                  online.opponentOnline ? "Adversaire en ligne" : "Adversaire hors ligne"
+                }
+              />
+            )}
+          </div>
           <ScaledBox
             width={GRID_DIMS.sm.w}
             height={GRID_DIMS.sm.h}
@@ -339,20 +409,26 @@ export const GameScreen = ({
             {lingerText ?? prompt}
           </div>
 
-          {/* Show what the AI drew while it decides/places — watching its pick
-              is half the drama of a card game. */}
-          {game.players[activeIndex].isAI && game.held && (
-            <div className="animate-pop flex items-center gap-2 rounded-full bg-slate-950/70 px-3 py-1.5">
-              <span className="text-xs text-white/80">
-                {game.heldSource === "discard"
-                  ? "L'ordinateur prend la défausse"
-                  : "L'ordinateur a pioché"}
-              </span>
-              <div className="scale-75">
-                <PlayingCard card={{ ...game.held, faceUp: true }} size="sm" />
+          {/* Show what the opponent (AI or remote player) drew while they
+              decide/place — watching their pick is half the drama. */}
+          {(game.players[activeIndex].isAI ||
+            (isOnline && activeIndex !== online.mySeat)) &&
+            game.held && (
+              <div className="animate-pop flex items-center gap-2 rounded-full bg-slate-950/70 px-3 py-1.5">
+                <span className="text-xs text-white/80">
+                  {game.players[activeIndex].isAI
+                    ? game.heldSource === "discard"
+                      ? "L'ordinateur prend la défausse"
+                      : "L'ordinateur a pioché"
+                    : game.heldSource === "discard"
+                      ? `${game.players[activeIndex].name} prend la défausse`
+                      : `${game.players[activeIndex].name} a pioché`}
+                </span>
+                <div className="scale-75">
+                  <PlayingCard card={{ ...game.held, faceUp: true }} size="sm" />
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </section>
 
         {/* Bottom player (interactive) */}
@@ -444,10 +520,42 @@ export const GameScreen = ({
   );
 };
 
-const getPrompt = (game: GameState, aiThinking: boolean): string => {
+const getPrompt = (
+  game: GameState,
+  aiThinking: boolean,
+  online?: OnlineViewProps
+): string => {
   if (aiThinking) return "L'ordinateur réfléchit…";
   const current = game.players[game.currentPlayer];
   if (current.isAI) return "Tour de l'ordinateur";
+  if (game.mode === "online" && online) {
+    if (online.awaitingReveal) return "Révélation des cartes…";
+    if (game.currentPlayer !== online.mySeat) {
+      switch (game.phase) {
+        case "setup":
+          return `${current.name} prépare sa grille…`;
+        case "roundOver":
+        case "gameOver":
+          return "";
+        default:
+          return `${current.name} joue…`;
+      }
+    }
+    switch (game.phase) {
+      case "setup":
+        return "Retournez 2 cartes de votre grille";
+      case "draw":
+        return "À vous : piochez ou prenez la défausse";
+      case "decide":
+        return "Garder cette carte ou la défausser ?";
+      case "replace":
+        return "Choisissez la carte à remplacer";
+      case "flip":
+        return "Retournez une carte cachée";
+      default:
+        return "";
+    }
+  }
   const duo = game.mode === "duo";
   switch (game.phase) {
     case "setup":

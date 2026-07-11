@@ -33,10 +33,12 @@ export const GRID_SIZE = ROWS * COLS; // 12
 export type Difficulty = "easy" | "normal" | "hard";
 
 /**
- * "solo" — one human (index 0) versus the AI (index 1).
- * "duo"  — two humans sharing the same device (hot-seat / pass-and-play).
+ * "solo"   — one human (index 0) versus the AI (index 1).
+ * "duo"    — two humans sharing the same device (hot-seat / pass-and-play).
+ * "online" — two humans on two devices, synchronised through Firebase; the
+ *            state is projected from a shared action log (src/online/).
  */
-export type GameMode = "solo" | "duo";
+export type GameMode = "solo" | "duo" | "online";
 
 /**
  * How a two-human game is laid out on the shared device. Purely a display

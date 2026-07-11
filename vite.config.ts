@@ -14,6 +14,13 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
+  optimizeDeps: {
+    // The Firebase SDK is only reached through a dynamic import (online
+    // mode). Pre-bundle it so the dev server doesn't discover it mid-session
+    // and force a full page reload — which would tear down a live duel (and
+    // made the e2e suite flaky).
+    include: ["firebase/app", "firebase/auth", "firebase/database"],
+  },
   plugins: [
     react(),
     mode === "development" && componentTagger(),
