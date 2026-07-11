@@ -3,8 +3,10 @@ import { GameState } from "@/game/types";
 import { gridScore, lowestTotalIndex } from "@/game/engine";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { CLEAR_ANIMATION_MS } from "./theme";
+import { CLEAR_ANIMATION_MS, GRID_DIMS } from "./theme";
 import { Confetti } from "./Confetti";
+import { Grid } from "./Grid";
+import { ScaledBox } from "./ScaledBox";
 
 /** Online context for the end-of-round / end-of-game panels. */
 export interface OnlineOverlayProps {
@@ -27,6 +29,32 @@ interface OverlayProps {
   onHome: () => void;
   online?: OnlineOverlayProps;
 }
+
+/**
+ * Both boards in miniature, every card face-up (the engine reveals them when
+ * the round is scored) — so the end-of-round panel shows *why* the scores are
+ * what they are, without having to peek behind the blurred backdrop.
+ */
+const BoardsRecap = ({ game }: { game: GameState }) => (
+  <div className="mb-3 flex items-start justify-center gap-3">
+    {game.players.map((p) => (
+      <div key={p.id} className="flex min-w-0 flex-col items-center gap-1">
+        <span className="max-w-[10rem] truncate text-xs font-semibold text-white/80">
+          {p.name}
+        </span>
+        <ScaledBox
+          width={GRID_DIMS.sm.w}
+          height={GRID_DIMS.sm.h}
+          // Two boards side by side whatever the phone width (panel padding
+          // and the gap eat ~90px), capped at a comfortable reading size.
+          scale="min(0.64, (100vw - 90px) / 492)"
+        >
+          <Grid player={p} size="sm" />
+        </ScaledBox>
+      </div>
+    ))}
+  </div>
+);
 
 const ScoreTable = ({ game }: { game: GameState }) => {
   const rounds = game.players[0].roundScores.length;
@@ -117,7 +145,7 @@ export const Overlays = ({
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-slate-950/70 p-3 backdrop-blur-sm sm:items-center">
       <Confetti run={celebrate} />
-      <div className="animate-float-up w-full max-w-md rounded-2xl bg-slate-900 p-5 text-white shadow-2xl ring-1 ring-white/10">
+      <div className="animate-float-up max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-2xl bg-slate-900 p-5 text-white shadow-2xl ring-1 ring-white/10">
         <div className="mb-3 text-center">
           {isGameOver ? (
             isOnline ? (
@@ -182,6 +210,7 @@ export const Overlays = ({
           )}
         </div>
 
+        <BoardsRecap game={game} />
         <ScoreTable game={game} />
 
         <div

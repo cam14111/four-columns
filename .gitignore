@@ -26,3 +26,6 @@ dev-dist
 
 # Firebase emulator/deploy cache
 .firebase/
+
+# e2e visual artifacts
+e2e-artifacts/

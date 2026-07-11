@@ -342,6 +342,12 @@ const main = async () => {
 
   // ---- 6. Next round via the double-ready handshake --------------------------
   console.log("▶ 6. manche suivante (double prêt)");
+  // Visual artifact: the end-of-round panel (boards recap + score table).
+  await pageA.waitForSelector("text=Fin de la manche", { timeout: 15_000 });
+  await (await import("node:fs/promises")).mkdir("e2e-artifacts", {
+    recursive: true,
+  });
+  await pageA.screenshot({ path: "e2e-artifacts/round-over.png" });
   await pageA.getByRole("button", { name: "Manche suivante" }).click();
   await pageA.waitForSelector("text=En attente de Bob", { timeout: 15_000 });
   check(true, "A attend le prêt de B");
