@@ -152,6 +152,7 @@ export class OnlineDuel {
   private roundUnsubs = new Map<string, Unsub[]>();
   private destroyed = false;
   private busy = false;
+  private watchdog: ReturnType<typeof setInterval> | null = null;
   /** False during the initial sync — actions ingested then are not "live". */
   private live = false;
   private lastAction: (OnlineAction & { key: string }) | null = null;
@@ -344,6 +345,22 @@ export class OnlineDuel {
         this.recompute();
       })
     );
+
+    // Watchdog: if the protocol owes something (final reveal, next-round
+    // deal, game-over result) and no data event retriggers the upkeep pass —
+    // swallowed transient error, phone back from sleep, missed echo — retry
+    // on a slow heartbeat. Idempotent, so spurious runs are harmless.
+    this.watchdog = setInterval(() => {
+      const r = this.replay;
+      if (this.destroyed || !r || r.corrupted || this.result) return;
+      const owes =
+        r.awaitingReveal ||
+        r.state.phase === "gameOver" ||
+        (r.state.phase === "roundOver" &&
+          this.nextReadyFlags["0"] === true &&
+          this.nextReadyFlags["1"] === true);
+      if (owes) void this.maybeAutoAct();
+    }, 3000);
 
     this.recompute();
   }
@@ -568,6 +585,10 @@ export class OnlineDuel {
     this.busy = b;
     this.snapshot = this.buildSnapshot();
     this.emit();
+    // Data echoes that arrived while we were busy skipped their upkeep pass
+    // (most importantly: publishing the final reveal right after writing a
+    // round-closing action). Run it now that the lock is released.
+    if (!b) queueMicrotask(() => void this.maybeAutoAct());
   }
 
   /** Writes the peek marker then reads the secret it unlocks. */
@@ -697,14 +718,17 @@ export class OnlineDuel {
   // -------------------------------------------------------------------------
 
   private autoActing = false;
+  /** A recompute fired while an upkeep pass was running/locked — rerun after. */
+  private autoActQueued = false;
 
   private async maybeAutoAct(): Promise<void> {
-    if (this.autoActing || this.destroyed || this.busy) return;
-    const r = this.replay;
-    if (!r || r.corrupted || this.result) {
-      // Even with a result we may still owe the final lobby status flip.
+    if (this.destroyed) return;
+    if (this.autoActing || this.busy) {
+      this.autoActQueued = true;
       return;
     }
+    const r = this.replay;
+    if (!r || r.corrupted || this.result) return;
     this.autoActing = true;
     try {
       // 1) Round closed and the missing values are mine → publish them.
@@ -730,9 +754,13 @@ export class OnlineDuel {
       // 4) A move of ours was interrupted between peek and action → finish it.
       await this.completeOrphanMove(r);
     } catch {
-      /* transient failures are retried on the next recompute */
+      /* transient failure — the watchdog below retries shortly */
     } finally {
       this.autoActing = false;
+      if (this.autoActQueued && !this.destroyed) {
+        this.autoActQueued = false;
+        queueMicrotask(() => void this.maybeAutoAct());
+      }
     }
   }
 
@@ -909,6 +937,7 @@ export class OnlineDuel {
 
   destroy(): void {
     this.destroyed = true;
+    if (this.watchdog) clearInterval(this.watchdog);
     for (const u of this.unsubs) u();
     for (const us of this.roundUnsubs.values()) for (const u of us) u();
     this.unsubs = [];
