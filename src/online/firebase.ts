@@ -25,14 +25,14 @@ import {
 const env = import.meta.env;
 
 export const firebaseConfig = {
-  apiKey: env.VITE_FIREBASE_API_KEY ?? "REMPLACER_PAR_LA_CLE_API_WEB",
+  apiKey: env.VITE_FIREBASE_API_KEY ?? "AIzaSyB0UDvuzToNSPuAXphq6YANPm8jd5chw_A",
   authDomain:
     env.VITE_FIREBASE_AUTH_DOMAIN ?? "four-columns-duels.firebaseapp.com",
   databaseURL:
     env.VITE_FIREBASE_DATABASE_URL ??
     "https://four-columns-duels-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: env.VITE_FIREBASE_PROJECT_ID ?? "four-columns-duels",
-  appId: env.VITE_FIREBASE_APP_ID ?? "REMPLACER_PAR_APP_ID",
+  appId: env.VITE_FIREBASE_APP_ID ?? "1:884735371063:web:79b608acdb95b0fbd91cb2",
 };
 
 const emulatorsEnabled = (): boolean => env.VITE_FIREBASE_EMULATORS === "1";
