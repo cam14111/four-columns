@@ -14,6 +14,12 @@ export interface OnlineOverlayProps {
   /** abandon / claim / score verdict, if any. */
   result: { winner: number; reason: "abandon" | "claim" | "score" } | null;
   nextReady: { me: boolean; them: boolean };
+  opponentOnline: boolean;
+  /** Opponent away long enough for the rules to accept a claimed win. */
+  canClaimVictory: boolean;
+  onClaim: () => void;
+  /** Leave without abandoning — the duel stays resumable from Home. */
+  onLeave: () => void;
   /** Rematch advertised by the opponent, joinable now. */
   rematchOffered: boolean;
   /** I already created the rematch and am waiting for them. */
@@ -283,6 +289,34 @@ export const Overlays = ({
             >
               Manche suivante
             </Button>
+          )}
+
+          {/* The panel covers the whole screen, so the between-rounds wait
+              must offer its own exits: the opponent may never come back. */}
+          {isOnline && !isGameOver && (
+            <>
+              {!online.opponentOnline && (
+                <p className="text-center text-xs text-white/60">
+                  {game.players[1 - online.mySeat].name} est déconnecté·e — la
+                  partie reprendra à son retour.
+                </p>
+              )}
+              {online.canClaimVictory && (
+                <Button
+                  onClick={online.onClaim}
+                  className="w-full bg-amber-300 font-bold text-slate-900 hover:bg-amber-200"
+                >
+                  Réclamer la victoire
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                onClick={online.onLeave}
+                className="w-full text-white/60 hover:text-white"
+              >
+                Quitter (partie conservée)
+              </Button>
+            </>
           )}
         </div>
       </div>

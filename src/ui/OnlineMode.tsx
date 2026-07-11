@@ -256,6 +256,13 @@ export const OnlineMode = ({
           mySeat: snap.mySeat,
           result: snap.result,
           nextReady: snap.nextReady,
+          opponentOnline: snap.opponentOnline,
+          canClaimVictory: snap.canClaimVictory,
+          onClaim: () => void online.claimVictory(),
+          onLeave: () => {
+            online.leave();
+            onExit();
+          },
           rematchOffered: !!snap.rematchCode,
           rematchRequested: false,
           onRematch: () => void online.requestRematch(name),
