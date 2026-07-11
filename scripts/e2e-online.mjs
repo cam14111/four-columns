@@ -488,7 +488,10 @@ const main = async () => {
       ? "\n✅ e2e OK — tous les scénarios passent"
       : `\n❌ e2e: ${failures} échec(s)`
   );
-  process.exitCode = failures === 0 ? 0 : 1;
+  // Exit explicitly: the piped stdio of the emulator/vite children keeps the
+  // event loop alive, so the process would otherwise hang after the verdict.
+  cleanup();
+  process.exit(failures === 0 ? 0 : 1);
 };
 
 // ---------------------------------------------------------------------------
