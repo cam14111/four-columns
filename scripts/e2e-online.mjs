@@ -235,8 +235,11 @@ const main = async () => {
       ? { executablePath }
       : {}
   );
-  const ctxA = await browser.newContext(); // "phone" A (host)
-  const ctxB = await browser.newContext(); // "phone" B (guest)
+  // Real phone-sized viewports — the app is mobile-first and the visual
+  // artifacts should show what players actually see.
+  const phone = { viewport: { width: 390, height: 844 } };
+  const ctxA = await browser.newContext(phone); // "phone" A (host)
+  const ctxB = await browser.newContext(phone); // "phone" B (guest)
   const pageA = await ctxA.newPage();
   const pageB = await ctxB.newPage();
   for (const [name, page] of [["A", pageA], ["B", pageB]]) {
@@ -342,6 +345,12 @@ const main = async () => {
 
   // ---- 6. Next round via the double-ready handshake --------------------------
   console.log("▶ 6. manche suivante (double prêt)");
+  // Visual artifact: the end-of-round panel (boards recap + score table).
+  await pageA.waitForSelector("text=Fin de la manche", { timeout: 15_000 });
+  await (await import("node:fs/promises")).mkdir("e2e-artifacts", {
+    recursive: true,
+  });
+  await pageA.screenshot({ path: "e2e-artifacts/round-over.png" });
   await pageA.getByRole("button", { name: "Manche suivante" }).click();
   await pageA.waitForSelector("text=En attente de Bob", { timeout: 15_000 });
   check(true, "A attend le prêt de B");
