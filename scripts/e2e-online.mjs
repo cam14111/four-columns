@@ -254,6 +254,11 @@ const main = async () => {
   await pageA.goto(BASE);
   await pageA.getByRole("button", { name: "En ligne" }).click();
   await pageA.getByPlaceholder("Vous").fill("Alice");
+  // Score limit 150: leaves room for several rounds even when the closer's
+  // penalty doubles a big score (a 100-limit game can end at round 1).
+  await pageA.getByRole("button", { name: "Réglages" }).click();
+  await pageA.getByRole("button", { name: "150" }).click();
+  await pageA.getByRole("button", { name: "Fermer" }).click();
   await pageA.getByRole("button", { name: "Jouer en ligne" }).click();
   await pageA.getByRole("button", { name: "Créer une partie" }).click();
   await pageA.waitForSelector("text=Partie créée !", { timeout: 30_000 });
@@ -298,25 +303,42 @@ const main = async () => {
   // ---- 5. Play a full round --------------------------------------------------
   console.log("▶ 5. première manche complète");
   const pages = [pageA, pageB];
-  const roundOverA = await playUntil(
-    pages,
-    (s) => s.roundScores?.[0]?.length >= 1,
-    "manche 1 terminée"
-  );
-  check(roundOverA.roundScores[0].length === 1, "scores de manche enregistrés");
-  const roundOverB = await waitSnap(
-    pageB,
-    (s) => s.roundScores?.[0]?.length >= 1,
-    "B voit la fin de manche"
-  );
-  check(
-    JSON.stringify(roundOverA.totals) === JSON.stringify(roundOverB.totals),
-    `totaux identiques des deux côtés (${JSON.stringify(roundOverA.totals)})`
-  );
-  check(
-    JSON.stringify(roundOverA.grids) === JSON.stringify(roundOverB.grids),
-    "grilles identiques des deux côtés"
-  );
+  let roundOverA;
+  for (let attempt = 0; ; attempt++) {
+    roundOverA = await playUntil(
+      pages,
+      (s) => s.roundScores?.[0]?.length >= 1,
+      "manche 1 terminée"
+    );
+    check(roundOverA.roundScores[0].length === 1, "scores de manche enregistrés");
+    const roundOverB = await waitSnap(
+      pageB,
+      (s) => s.roundScores?.[0]?.length >= 1,
+      "B voit la fin de manche"
+    );
+    check(
+      JSON.stringify(roundOverA.totals) === JSON.stringify(roundOverB.totals),
+      `totaux identiques des deux côtés (${JSON.stringify(roundOverA.totals)})`
+    );
+    check(
+      JSON.stringify(roundOverA.grids) === JSON.stringify(roundOverB.grids),
+      "grilles identiques des deux côtés"
+    );
+    if (roundOverA.phase !== "gameOver") break;
+    // Rare: the doubled closer score blew past the limit at round 1 — start
+    // a rematch so the next-round handshake can still be exercised.
+    if (attempt >= 3) throw new Error("manche 1 termine toujours la partie");
+    console.log("  (manche 1 a conclu la partie — revanche pour continuer)");
+    await pageA
+      .getByRole("button", { name: "Proposer une revanche" })
+      .click({ timeout: 15_000 });
+    await waitSnap(pageA, (s) => s.status === "lobby", "A lobby revanche");
+    await pageB
+      .getByRole("button", { name: "Rejoindre la revanche" })
+      .click({ timeout: 15_000 });
+    await waitSnap(pageA, (s) => s.status === "playing", "revanche lancée");
+    await waitSnap(pageB, (s) => s.status === "playing", "revanche lancée B");
+  }
 
   // ---- 6. Next round via the double-ready handshake --------------------------
   console.log("▶ 6. manche suivante (double prêt)");
@@ -384,8 +406,8 @@ const main = async () => {
     "toutes les cartes révélées en fin de partie"
   );
   check(
-    Math.max(...endA.totals) >= 100,
-    "la limite de score a bien conclu la partie"
+    Math.max(...endA.totals) >= 150,
+    "la limite de score (150) a bien conclu la partie"
   );
   const winnerSeat = endA.totals[0] <= endA.totals[1] ? 0 : 1;
   const winnerPage = winnerSeat === 0 ? pageA : pageB2;
