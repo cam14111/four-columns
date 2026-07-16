@@ -13,6 +13,8 @@ export interface Settings {
   difficulty: Difficulty;
   /** Total at which the game ends (applies to the next game). */
   scoreLimit: number;
+  /** Number of seats to open when creating an online game (2..8). */
+  onlinePlayers: number;
   sound: boolean;
   haptics: boolean;
 }
@@ -28,6 +30,7 @@ export const DEFAULT_SETTINGS: Settings = {
   duoLayout: "pass",
   difficulty: "normal",
   scoreLimit: 100,
+  onlinePlayers: 2,
   sound: true,
   haptics: true,
 };

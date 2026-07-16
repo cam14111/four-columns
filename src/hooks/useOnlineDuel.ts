@@ -1,6 +1,6 @@
-// React bridge for the online duel: owns the OnlineDuel client lifecycle,
-// exposes its snapshot as React state, and plays the same sound/haptic
-// language as the local modes for both my moves and the opponent's.
+// React bridge for the online live mode: owns the OnlineGame client
+// lifecycle, exposes its snapshot as React state, and plays the same
+// sound/haptic language as the local modes for my moves and everyone else's.
 //
 // The Firebase SDK (and everything under src/online/) is loaded lazily on
 // first use so the solo/duo experience — and the offline PWA — never pays
@@ -9,8 +9,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GameAction } from "@/game/types";
 import type {
-  OnlineDuel,
   OnlineErrorCode,
+  OnlineGame,
   OnlineSnapshot,
 } from "@/online/client";
 import type { OnlineSession } from "@/online/session";
@@ -23,16 +23,20 @@ export type OnlineStage =
   | { kind: "active" }
   | { kind: "error"; error: OnlineErrorCode };
 
-export interface UseOnlineDuel {
+export interface UseOnlineGame {
   stage: OnlineStage;
   snap: OnlineSnapshot | null;
-  create: (name: string, scoreLimit: number) => Promise<void>;
+  create: (name: string, scoreLimit: number, maxPlayers: number) => Promise<void>;
   join: (code: string, name: string) => Promise<void>;
   resume: (session: OnlineSession) => Promise<void>;
   dispatch: (action: GameAction) => void;
   nextRound: () => void;
+  /** Host: start now with everyone currently seated. */
+  startEarly: () => Promise<void>;
   abandon: () => Promise<void>;
   claimVictory: () => Promise<void>;
+  /** Exclude an absent player who blocks the table (3+ players). */
+  excludePlayer: (seat: number) => Promise<void>;
   requestRematch: (name: string) => Promise<void>;
   joinRematch: (name: string) => Promise<void>;
   cancelLobby: () => Promise<void>;
@@ -45,31 +49,31 @@ export interface UseOnlineDuel {
 
 const loadClient = () => import("@/online/client");
 
-export const useOnlineDuel = (): UseOnlineDuel => {
+export const useOnlineDuel = (): UseOnlineGame => {
   const [stage, setStage] = useState<OnlineStage>({ kind: "setup" });
   const [snap, setSnap] = useState<OnlineSnapshot | null>(null);
-  const duelRef = useRef<OnlineDuel | null>(null);
+  const gameRef = useRef<OnlineGame | null>(null);
   const prevTurn = useRef<boolean>(false);
   const lastActionKey = useRef<string | null>(null);
 
   const detach = useCallback(() => {
-    duelRef.current?.destroy();
-    duelRef.current = null;
+    gameRef.current?.destroy();
+    gameRef.current = null;
     setSnap(null);
   }, []);
 
   useEffect(() => detach, [detach]);
 
-  const bind = useCallback((duel: OnlineDuel) => {
-    duelRef.current = duel;
-    lastActionKey.current = duel.getSnapshot().lastAction?.key ?? null;
-    setSnap(duel.getSnapshot());
-    duel.subscribe(() => setSnap(duel.getSnapshot()));
+  const bind = useCallback((game: OnlineGame) => {
+    gameRef.current = game;
+    lastActionKey.current = game.getSnapshot().lastAction?.key ?? null;
+    setSnap(game.getSnapshot());
+    game.subscribe(() => setSnap(game.getSnapshot()));
     setStage({ kind: "active" });
   }, []);
 
   const run = useCallback(
-    async (label: string, task: () => Promise<OnlineDuel>) => {
+    async (label: string, task: () => Promise<OnlineGame>) => {
       detach();
       setStage({ kind: "connecting", label });
       try {
@@ -83,10 +87,10 @@ export const useOnlineDuel = (): UseOnlineDuel => {
   );
 
   const create = useCallback(
-    (name: string, scoreLimit: number) =>
+    (name: string, scoreLimit: number, maxPlayers: number) =>
       run("Création de la partie…", async () => {
-        const { OnlineDuel } = await loadClient();
-        return OnlineDuel.create(name, scoreLimit);
+        const { OnlineGame } = await loadClient();
+        return OnlineGame.create(name, scoreLimit, maxPlayers);
       }),
     [run]
   );
@@ -94,17 +98,17 @@ export const useOnlineDuel = (): UseOnlineDuel => {
   const join = useCallback(
     (code: string, name: string) =>
       run("Connexion à la partie…", async () => {
-        const { OnlineDuel } = await loadClient();
-        return OnlineDuel.join(code, name);
+        const { OnlineGame } = await loadClient();
+        return OnlineGame.join(code, name);
       }),
     [run]
   );
 
   const resume = useCallback(
     (session: OnlineSession) =>
-      run("Reprise du duel…", async () => {
-        const { OnlineDuel } = await loadClient();
-        return OnlineDuel.resume(session.code);
+      run("Reprise de la partie…", async () => {
+        const { OnlineGame } = await loadClient();
+        return OnlineGame.resume(session.code);
       }),
     [run]
   );
@@ -121,7 +125,7 @@ export const useOnlineDuel = (): UseOnlineDuel => {
     prevTurn.current = mine ?? false;
   }, [snap?.myTurn, snap?.game?.phase, snap]);
 
-  // Opponent moves make the same noises my own do.
+  // Remote moves make the same noises my own do.
   useEffect(() => {
     const action = snap?.lastAction;
     if (!action || action.key === lastActionKey.current) return;
@@ -145,7 +149,7 @@ export const useOnlineDuel = (): UseOnlineDuel => {
     }
   }, [snap?.lastAction, snap?.mySeat, snap]);
 
-  // Column clears / round transitions ring for both players.
+  // Column clears / round transitions ring for everyone.
   const seenEvents = useRef<unknown>(null);
   useEffect(() => {
     const events = snap?.game?.events;
@@ -165,11 +169,13 @@ export const useOnlineDuel = (): UseOnlineDuel => {
     }
   }, [snap]);
 
-  // The "claim victory" button depends on wall-clock time: tick while the
-  // opponent is away so it appears without any data change.
+  // The claim/exclude buttons depend on wall-clock time: tick while someone
+  // is away so they appear without any data change.
   useEffect(() => {
-    if (!snap || snap.status !== "playing" || snap.opponentOnline) return;
-    const t = setInterval(() => duelRef.current?.refresh(), 5000);
+    if (!snap || snap.status !== "playing") return;
+    const someoneAway = snap.players.some((p) => !p.out && !p.online);
+    if (!someoneAway) return;
+    const t = setInterval(() => gameRef.current?.refresh(), 5000);
     return () => clearInterval(t);
   }, [snap]);
 
@@ -196,29 +202,37 @@ export const useOnlineDuel = (): UseOnlineDuel => {
         vibrate("light");
         break;
     }
-    void duelRef.current?.dispatch(action);
+    void gameRef.current?.dispatch(action);
   }, []);
 
   const nextRound = useCallback(() => {
-    void duelRef.current?.setNextReady();
+    void gameRef.current?.setNextReady();
+  }, []);
+
+  const startEarly = useCallback(async () => {
+    await gameRef.current?.startEarly();
   }, []);
 
   const abandon = useCallback(async () => {
-    await duelRef.current?.abandon();
+    await gameRef.current?.abandon();
   }, []);
 
   const claimVictory = useCallback(async () => {
-    await duelRef.current?.claimVictory();
+    await gameRef.current?.claimVictory();
+  }, []);
+
+  const excludePlayer = useCallback(async (seat: number) => {
+    await gameRef.current?.excludePlayer(seat);
   }, []);
 
   const requestRematch = useCallback(
     async (name: string) => {
-      const duel = duelRef.current;
-      if (!duel) return;
+      const game = gameRef.current;
+      if (!game) return;
       setStage({ kind: "connecting", label: "Nouvelle partie…" });
       try {
-        const next = await duel.requestRematch(name);
-        duel.destroy();
+        const next = await game.requestRematch(name);
+        game.destroy();
         bind(next);
       } catch {
         setStage({ kind: "active" });
@@ -229,7 +243,7 @@ export const useOnlineDuel = (): UseOnlineDuel => {
 
   const joinRematch = useCallback(
     async (name: string) => {
-      const code = duelRef.current?.getSnapshot().rematchCode;
+      const code = gameRef.current?.getSnapshot().rematchCode;
       if (!code) return;
       await join(code, name);
     },
@@ -237,7 +251,7 @@ export const useOnlineDuel = (): UseOnlineDuel => {
   );
 
   const cancelLobby = useCallback(async () => {
-    await duelRef.current?.cancelLobby();
+    await gameRef.current?.cancelLobby();
     detach();
     setStage({ kind: "setup" });
   }, [detach]);
@@ -248,9 +262,9 @@ export const useOnlineDuel = (): UseOnlineDuel => {
   }, [detach]);
 
   const leaveFinished = useCallback(() => {
-    const duel = duelRef.current;
-    if (duel) {
-      void duel.cleanup();
+    const game = gameRef.current;
+    if (game) {
+      void game.cleanup();
       import("@/online/session").then((m) => m.clearOnlineSession());
     }
     detach();
@@ -267,8 +281,10 @@ export const useOnlineDuel = (): UseOnlineDuel => {
     resume,
     dispatch,
     nextRound,
+    startEarly,
     abandon,
     claimVictory,
+    excludePlayer,
     requestRematch,
     joinRematch,
     cancelLobby,

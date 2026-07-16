@@ -61,6 +61,12 @@ export interface PlayerState {
   lastRoundScore: number;
   /** One entry per completed round. */
   roundScores: number[];
+  /**
+   * The player left the game (online multiplayer forfeit). Out players are
+   * skipped by the turn rotation and excluded from scoring; their totals are
+   * frozen where they were. Absent/undefined means the player is active.
+   */
+  out?: boolean;
 }
 
 export const ALL_PHASES = [
@@ -110,6 +116,7 @@ export interface GameState {
 }
 
 export type GameEvent =
+  | { type: "forfeit"; player: number }
   | { type: "columnCleared"; player: number; column: number; value: CardValue }
   | {
       type: "cardPlaced";

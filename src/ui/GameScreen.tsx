@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FlipVertical2, Menu } from "lucide-react";
-import { DuoLayout, GameState } from "@/game/types";
+import { FlipVertical2, Menu, UserX } from "lucide-react";
+import { DuoLayout, GameState, PlayerState } from "@/game/types";
 import { GameAction } from "@/game/types";
+import type { OnlinePlayerMeta } from "@/online/client";
+import { visibleScore } from "@/game/engine";
 import { DIFFICULTY_LABEL, GRID_DIMS } from "./theme";
 import { Grid, PlayerBadge } from "./Grid";
 import { Piles } from "./Piles";
@@ -9,7 +11,7 @@ import { PlayingCard } from "./PlayingCard";
 import { FaceToFace } from "./FaceToFace";
 import { HandoffOverlay } from "./HandoffOverlay";
 import { ScaledBox } from "./ScaledBox";
-import { moveFlash, moveSummary, useLastMove } from "./lastMove";
+import { LastMove, moveFlash, moveSummary, useLastMove } from "./lastMove";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -132,20 +134,191 @@ const usePassHandoff = (game: GameState, enabled: boolean): PassHandoff => {
 };
 
 // ---------------------------------------------------------------------------
+// Opponents strip (online, 3+ players)
+// ---------------------------------------------------------------------------
+//
+// My board keeps the full-size bottom slot; every opponent lives in a compact
+// tile up top, ordered by turn order starting after me. With two or three
+// opponents the tiles share the width; beyond that the strip scrolls
+// horizontally and auto-centres whoever is playing.
+
+/** Scale that fits `n` small boards side by side, floored for readability. */
+const useStripScale = (n: number, short: boolean): number => {
+  const compute = useCallback(() => {
+    const vw = Math.min(window.innerWidth, 640);
+    const per = (vw - 24 - (n - 1) * 8) / n / GRID_DIMS.sm.w;
+    return Math.max(0.44, Math.min(short ? 0.52 : 0.62, per));
+  }, [n, short]);
+  const [scale, setScale] = useState(compute);
+  useEffect(() => {
+    const onResize = () => setScale(compute());
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [compute]);
+  return scale;
+};
+
+const OpponentTile = ({
+  player,
+  meta,
+  scale,
+  active,
+  finalTurn,
+  dealKey,
+  highlightIndex,
+  highlightSeq,
+  tileRef,
+}: {
+  player: PlayerState;
+  meta: OnlinePlayerMeta | undefined;
+  scale: number;
+  active: boolean;
+  finalTurn: boolean;
+  dealKey: number;
+  highlightIndex: number | null;
+  highlightSeq?: number;
+  tileRef: (el: HTMLDivElement | null) => void;
+}) => (
+  <div
+    ref={tileRef}
+    className={cn(
+      "flex shrink-0 snap-center flex-col items-center gap-1",
+      player.out && "opacity-40"
+    )}
+  >
+    <div className="relative">
+      <ScaledBox
+        width={GRID_DIMS.sm.w}
+        height={GRID_DIMS.sm.h}
+        scale={String(scale)}
+      >
+        <Grid
+          player={player}
+          size="sm"
+          active={active}
+          dealKey={dealKey}
+          highlightIndex={highlightIndex}
+          highlightSeq={highlightSeq}
+        />
+      </ScaledBox>
+      {player.out && (
+        <span className="absolute inset-0 grid place-items-center rounded-2xl bg-slate-950/50 text-xs font-bold uppercase tracking-wide text-white/80">
+          A quitté
+        </span>
+      )}
+    </div>
+    <div
+      className={cn(
+        "flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium",
+        active ? "bg-amber-300 text-slate-900" : "bg-white/10 text-white/85"
+      )}
+    >
+      {!player.out && (
+        <span
+          className={cn(
+            "h-1.5 w-1.5 shrink-0 rounded-full",
+            meta?.online ? "bg-emerald-400" : "bg-slate-400"
+          )}
+          aria-hidden
+        />
+      )}
+      <span className="truncate" style={{ maxWidth: `${Math.max(56, scale * GRID_DIMS.sm.w - 60)}px` }}>
+        {player.name}
+      </span>
+      <span className="rounded-full bg-black/20 px-1.5 tabular-nums">
+        {visibleScore(player.grid)}
+      </span>
+      {finalTurn && !player.out && (
+        <span className="rounded-full bg-rose-500 px-1.5 text-[9px] font-bold uppercase text-white">
+          Fin
+        </span>
+      )}
+    </div>
+  </div>
+);
+
+const OpponentsStrip = ({
+  game,
+  online,
+  activeIndex,
+  lastMove,
+  shortScreen,
+}: {
+  game: GameState;
+  online: OnlineViewProps;
+  activeIndex: number;
+  lastMove: LastMove | null;
+  shortScreen: boolean;
+}) => {
+  const count = game.players.length;
+  const order: number[] = [];
+  for (let step = 1; step < count; step++) {
+    order.push((online.mySeat + step) % count);
+  }
+  const scale = useStripScale(order.length, shortScreen);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const tileRefs = useRef(new Map<number, HTMLDivElement>());
+
+  // Keep the player who is acting in view.
+  useEffect(() => {
+    const container = containerRef.current;
+    const tile = tileRefs.current.get(activeIndex);
+    if (!container || !tile) return;
+    const target =
+      tile.offsetLeft - (container.clientWidth - tile.clientWidth) / 2;
+    container.scrollTo({ left: target, behavior: "smooth" });
+  }, [activeIndex]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="flex snap-x items-start gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    >
+      {order.length <= 3 && <div className="mx-auto" aria-hidden />}
+      {order.map((seat) => (
+        <OpponentTile
+          key={seat}
+          player={game.players[seat]}
+          meta={online.players[seat]}
+          scale={scale}
+          active={activeIndex === seat && game.phase !== "roundOver"}
+          finalTurn={game.closedBy !== null && activeIndex === seat}
+          dealKey={game.round}
+          highlightIndex={
+            lastMove && lastMove.player === seat ? lastMove.index : null
+          }
+          highlightSeq={lastMove?.seq}
+          tileRef={(el) => {
+            if (el) tileRefs.current.set(seat, el);
+            else tileRefs.current.delete(seat);
+          }}
+        />
+      ))}
+      {order.length <= 3 && <div className="mx-auto" aria-hidden />}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // Game screen
 // ---------------------------------------------------------------------------
 
 /** Online-mode context: who I am, how the table is doing. */
 export interface OnlineViewProps {
   mySeat: number;
-  opponentOnline: boolean;
+  /** One entry per seat (presence, forfeits, exclusion rights). */
+  players: OnlinePlayerMeta[];
   connected: boolean;
   /** Round closed; the last face-down cards are being disclosed. */
   awaitingReveal: boolean;
   /** A write is in flight — inputs are momentarily locked. */
   busy: boolean;
+  /** Two-player games: the absent opponent's win may be claimed. */
   canClaimVictory: boolean;
   onClaim: () => void;
+  /** 3+ players: exclude an absent player who blocks the table. */
+  onExclude: (seat: number) => void;
 }
 
 interface GameScreenProps {
@@ -241,13 +414,29 @@ export const GameScreen = ({
 
   // ---- Pass-the-phone (solo & online): active player anchored to the bottom -
   // Solo keeps the human anchored at the bottom (the AI never "sits down" at
-  // the phone); online keeps *me* there — the opponent plays on their own
-  // device. Duo hot-seat shows whoever the hand-off machine says (it lags
+  // the phone); online keeps *me* there — the others play on their own
+  // devices. Duo hot-seat shows whoever the hand-off machine says (it lags
   // the engine so the outgoing player sees their result before the swap).
+  // With three or more online players the single top board becomes a strip
+  // of compact opponent tiles.
+  const multi = isOnline && game.players.length > 2;
   const bottomIndex = isOnline ? online.mySeat : duo ? viewIndex : 0;
-  const topIndex = 1 - bottomIndex;
+  const topIndex = multi ? -1 : 1 - bottomIndex;
   const bottomPlayer = game.players[bottomIndex];
-  const topPlayer = game.players[topIndex];
+  const topPlayer = multi ? null : game.players[topIndex];
+  // Online presence of the single opponent (two-player games).
+  const topMeta = isOnline && !multi ? online.players[topIndex] : undefined;
+  // Multiplayer: an offline player everyone is waiting on (turn, reveal).
+  const stalledMeta = multi
+    ? online.players.find(
+        (p) =>
+          p &&
+          !p.out &&
+          !p.isMe &&
+          !p.online &&
+          (game.currentPlayer === p.seat || p.canExclude)
+      )
+    : undefined;
 
   const bottomIsCurrent = activeIndex === bottomIndex;
   const canAct = bottomIsCurrent && !aiThinking && !onlineLocked;
@@ -314,18 +503,18 @@ export const GameScreen = ({
         </div>
       </header>
 
-      {/* Online status strips: my link, then the opponent's presence. */}
+      {/* Online status strips: my link, then absent players. */}
       {isOnline && !online.connected && (
         <div className="mx-3 mb-1 flex items-center justify-center gap-2 rounded-xl bg-amber-400/15 px-3 py-1.5 text-xs font-semibold text-amber-200 ring-1 ring-amber-300/30">
           <span className="h-2 w-2 animate-pulse rounded-full bg-amber-300" />
           Reconnexion…
         </div>
       )}
-      {isOnline && online.connected && !online.opponentOnline && (
+      {isOnline && online.connected && !multi && topMeta && !topMeta.online && (
         <div className="mx-3 mb-1 flex items-center justify-center gap-3 rounded-xl bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 ring-1 ring-white/10">
           <span className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-slate-400" />
-            {topPlayer.name} est déconnecté·e…
+            {topPlayer?.name} est déconnecté·e…
           </span>
           {online.canClaimVictory && (
             <button
@@ -338,47 +527,79 @@ export const GameScreen = ({
           )}
         </div>
       )}
+      {isOnline && online.connected && multi && stalledMeta && (
+        <div className="mx-3 mb-1 flex items-center justify-center gap-3 rounded-xl bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 ring-1 ring-white/10">
+          <span className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-slate-400" />
+            En attente de {stalledMeta.name} (déconnecté·e)…
+          </span>
+          {stalledMeta.canExclude && (
+            <button
+              type="button"
+              onClick={() => online.onExclude(stalledMeta.seat)}
+              className="flex items-center gap-1 rounded-full bg-amber-300 px-3 py-1 text-[11px] font-bold text-slate-900 hover:bg-amber-200"
+            >
+              <UserX size={12} />
+              Exclure
+            </button>
+          )}
+        </div>
+      )}
 
       <main
         key={duo ? `view-${viewIndex}-r${revealSeq}` : "solo"}
         className="animate-board-in flex flex-1 flex-col justify-between gap-2 px-3 pb-2"
       >
-        {/* Opponent / other player */}
-        <section className="flex flex-col items-center gap-1.5">
-          <div className="flex items-center gap-2">
-            <PlayerBadge
-              player={topPlayer}
-              active={displayActive === topIndex && phase !== "roundOver"}
-              finalTurn={topFinalTurn}
-              live
+        {/* Opponent(s): single mirrored board, or the multiplayer strip */}
+        {multi ? (
+          <section className="-mx-3">
+            <OpponentsStrip
+              game={game}
+              online={online}
+              activeIndex={activeIndex}
+              lastMove={lastMove}
+              shortScreen={shortScreen}
             />
-            {isOnline && (
-              <span
-                className={cn(
-                  "h-2.5 w-2.5 rounded-full ring-2 ring-slate-950/50",
-                  online.opponentOnline ? "bg-emerald-400" : "bg-slate-500"
-                )}
-                aria-label={
-                  online.opponentOnline ? "Adversaire en ligne" : "Adversaire hors ligne"
-                }
+          </section>
+        ) : (
+          <section className="flex flex-col items-center gap-1.5">
+            <div className="flex items-center gap-2">
+              <PlayerBadge
+                player={topPlayer!}
+                active={displayActive === topIndex && phase !== "roundOver"}
+                finalTurn={topFinalTurn}
+                live
               />
-            )}
-          </div>
-          <ScaledBox
-            width={GRID_DIMS.sm.w}
-            height={GRID_DIMS.sm.h}
-            scale="var(--pass-top)"
-          >
-            <Grid
-              player={topPlayer}
-              size="sm"
-              active={displayActive === topIndex && phase !== "roundOver"}
-              dealKey={game.round}
-              highlightIndex={highlightFor(topIndex)}
-              highlightSeq={lastMove?.seq}
-            />
-          </ScaledBox>
-        </section>
+              {isOnline && (
+                <span
+                  className={cn(
+                    "h-2.5 w-2.5 rounded-full ring-2 ring-slate-950/50",
+                    topMeta?.online ? "bg-emerald-400" : "bg-slate-500"
+                  )}
+                  aria-label={
+                    topMeta?.online
+                      ? "Adversaire en ligne"
+                      : "Adversaire hors ligne"
+                  }
+                />
+              )}
+            </div>
+            <ScaledBox
+              width={GRID_DIMS.sm.w}
+              height={GRID_DIMS.sm.h}
+              scale="var(--pass-top)"
+            >
+              <Grid
+                player={topPlayer!}
+                size="sm"
+                active={displayActive === topIndex && phase !== "roundOver"}
+                dealKey={game.round}
+                highlightIndex={highlightFor(topIndex)}
+                highlightSeq={lastMove?.seq}
+              />
+            </ScaledBox>
+          </section>
+        )}
 
         {/* Middle: piles + held/prompt */}
         <section className="flex flex-col items-center gap-3 py-1">

@@ -1,9 +1,9 @@
-// Wire protocol for the online duel mode.
+// Wire protocol for the online live mode (2 to 8 players).
 //
-// The whole multiplayer design rests on one idea: both clients replay the same
-// append-only action log through the existing pure engine (`reduce`), so their
-// GameStates — and therefore every animation, score and turn change — are
-// derived from identical inputs and never drift.
+// The whole multiplayer design rests on one idea: every client replays the
+// same append-only action log through the existing pure engine (`reduce`), so
+// their GameStates — and therefore every animation, score and turn change —
+// are derived from identical inputs and never drift.
 //
 // Hidden information (face-down grid cards, the undrawn pile) lives in a
 // `secrets/{code}` subtree that no client can read wholesale. A card's value
@@ -12,18 +12,35 @@
 // read ahead nor lie about what it drew.
 //
 // Card references ("refs") are stable string paths into the secret deal:
-//   g0/0..g0/11  — seat 0's grid slots (row-major, same order as Grid index)
-//   g1/0..g1/11  — seat 1's grid slots
-//   p/0          — the initial discard (public from the deal)
-//   p/1..p/125   — the draw pile, in draw order
+//   g0/0..g0/11    — seat 0's grid slots (row-major, same order as Grid index)
+//   …
+//   g7/0..g7/11    — seat 7's grid slots (as many grids as the game's
+//                    maxPlayers; grids of unfilled seats are simply never read)
+//   p/0            — the initial discard (public from the deal)
+//   p/1..          — the draw pile, in draw order (150 - 12·maxPlayers cards)
 // Refs double as engine card ids, which keeps the replay bookkeeping trivial.
+//
+// Numbers vs strings on the wire: seat indices that the *database rules* need
+// to splice into paths (`state.turn`, an action's `seat`, a result's `by`)
+// travel as strings ("0".."7"), because the rules language can only
+// concatenate strings. The TypeScript layer keeps seats as numbers and
+// converts at the read/write boundary (see `wireSeat` / `parseSeat`).
 
 import { buildDeck, randomSeed, shuffle } from "@/game/deck";
 import { GRID_SIZE } from "@/game/types";
 
-export type Seat = 0 | 1;
+/** A seat index. 0 is always the host. */
+export type Seat = number;
 
-export const otherSeat = (s: Seat): Seat => (s === 0 ? 1 : 0);
+export const MIN_PLAYERS = 2;
+export const MAX_PLAYERS = 8;
+
+export const wireSeat = (s: Seat): string => String(s);
+
+export const parseSeat = (v: unknown): Seat | null => {
+  const n = typeof v === "string" ? Number(v) : typeof v === "number" ? v : NaN;
+  return Number.isInteger(n) && n >= 0 && n < MAX_PLAYERS ? n : null;
+};
 
 // ---------------------------------------------------------------------------
 // Game codes
@@ -55,29 +72,34 @@ export const isValidGameCode = (code: string): boolean =>
 // Deal
 // ---------------------------------------------------------------------------
 
-export const PILE_SIZE = 150 - 2 * GRID_SIZE; // 126: p/0 is the first discard
+/**
+ * Pile size for a deal of `grids` grids (the deck holds 150 cards; p/0 is the
+ * first discard). Every round of a game deals `maxPlayers` grids — even when
+ * fewer seats ended up playing — so the layout never depends on who joined.
+ */
+export const pileSize = (grids: number): number => 150 - grids * GRID_SIZE;
 
 export interface SecretDeal {
-  /** secrets payload: { g0: {0: v, ...}, g1: {...}, p: {0: v, ...} } */
-  secrets: {
-    g0: Record<number, number>;
-    g1: Record<number, number>;
-    p: Record<number, number>;
-  };
+  /** secrets payload: { g0: {0: v, …}, g1: {…}, …, p: {0: v, …} } */
+  secrets: Record<string, Record<number, number>>;
   /** Value of p/0, public from the start (initial discard). */
   discard0: number;
 }
 
 /** Shuffles a fresh 150-card deck into the fixed deal layout. */
-export const generateDeal = (): SecretDeal => {
+export const generateDeal = (grids: number): SecretDeal => {
   const { cards } = shuffle(buildDeck(), randomSeed());
-  const g0: Record<number, number> = {};
-  const g1: Record<number, number> = {};
+  const secrets: SecretDeal["secrets"] = {};
+  for (let g = 0; g < grids; g++) {
+    const grid: Record<number, number> = {};
+    for (let i = 0; i < GRID_SIZE; i++) grid[i] = cards[g * GRID_SIZE + i].value;
+    secrets[`g${g}`] = grid;
+  }
   const p: Record<number, number> = {};
-  for (let i = 0; i < GRID_SIZE; i++) g0[i] = cards[i].value;
-  for (let i = 0; i < GRID_SIZE; i++) g1[i] = cards[GRID_SIZE + i].value;
-  for (let k = 0; k < PILE_SIZE; k++) p[k] = cards[2 * GRID_SIZE + k].value;
-  return { secrets: { g0, g1, p }, discard0: p[0] };
+  const pile = pileSize(grids);
+  for (let k = 0; k < pile; k++) p[k] = cards[grids * GRID_SIZE + k].value;
+  secrets.p = p;
+  return { secrets, discard0: p[0] };
 };
 
 // ---------------------------------------------------------------------------
@@ -89,10 +111,10 @@ export const pileRef = (k: number): string => `p/${k}`;
 
 export const parseRef = (
   ref: string
-): { area: "g0" | "g1" | "p"; index: number } | null => {
-  const m = /^(g0|g1|p)\/(\d+)$/.exec(ref);
+): { area: string; index: number } | null => {
+  const m = /^(g[0-7]|p)\/(\d+)$/.exec(ref);
   if (!m) return null;
-  return { area: m[1] as "g0" | "g1" | "p", index: Number(m[2]) };
+  return { area: m[1], index: Number(m[2]) };
 };
 
 // ---------------------------------------------------------------------------
@@ -106,9 +128,15 @@ export type OnlineActionType =
   | "keep"
   | "discardDrawn"
   | "place" // put the held card on a grid slot
-  | "flip"; // flip a face-down grid card after discarding the drawn one
+  | "flip" // flip a face-down grid card after discarding the drawn one
+  | "forfeit"; // a player leaves the game (voluntarily or excluded as absent)
 
 export interface OnlineAction {
+  /**
+   * For play actions: the acting seat (always the turn holder). For
+   * "forfeit": the seat *leaving the game* — written either by that player
+   * or, when they are absent, by the turn holder on everyone's behalf.
+   */
   seat: Seat;
   type: OnlineActionType;
   /** Grid slot for reveal/place/flip. */
@@ -124,6 +152,20 @@ export interface OnlineAction {
   at?: number | object;
 }
 
+/** Serialized action as stored in RTDB (seat as a string for the rules). */
+export type WireAction = Omit<OnlineAction, "seat"> & { seat: string };
+
+export const toWireAction = (a: OnlineAction): WireAction => ({
+  ...a,
+  seat: wireSeat(a.seat),
+});
+
+export const fromWireAction = (w: WireAction): OnlineAction | null => {
+  const seat = parseSeat(w.seat);
+  if (seat === null) return null;
+  return { ...w, seat };
+};
+
 /** Action keys: zero-padded so RTDB key order == play order. */
 export const actionKey = (n: number): string =>
   `a${String(n).padStart(4, "0")}`;
@@ -138,13 +180,22 @@ export const roundNumber = (key: string): number => Number(key.slice(1));
 // Database layout (types only — paths are built in client.ts)
 // ---------------------------------------------------------------------------
 
-export type GameStatus = "waiting" | "playing" | "over";
-
 export interface LobbyInfo {
-  status: GameStatus;
   hostName: string;
   scoreLimit: number;
+  /** Number of seats the host opened (2..8); grids dealt every round. */
+  maxPlayers: number;
   createdAt: number | object;
+}
+
+/**
+ * Written once when the game actually begins: pins how many seats take part.
+ * Auto-written (by any member) the moment the lobby is full, or early by the
+ * host once at least two players are seated.
+ */
+export interface StartInfo {
+  count: number;
+  at: number | object;
 }
 
 export interface SeatInfo {
@@ -157,11 +208,17 @@ export interface PublicState {
   round: string;
   /** Key the next action must use, e.g. "a0012". */
   next: string;
-  turn: Seat;
+  /**
+   * Seat allowed to write the next action, as a string ("0".."7") so the
+   * database rules can splice it into paths. During the end-of-round reveal
+   * ("revealing") it names the seat that wrote the closing action — the one
+   * responsible for protocol upkeep until the round is scored.
+   */
+  turn: string;
   /**
    * Engine phase, plus the synthetic "revealing" phase: the round has ended
-   * but the last actor still has face-down cards to disclose (their `final`
-   * record) before scores can be computed identically everywhere.
+   * but some players still have face-down cards to disclose (their `final`
+   * records) before scores can be computed identically everywhere.
    */
   phase:
     | "setup"
@@ -185,23 +242,25 @@ export interface PresenceInfo {
   lastSeen: number | object;
 }
 
-export type ResultReason = "abandon" | "claim" | "score";
+export type ResultReason = "abandon" | "claim" | "score" | "forfeit";
 
 export interface GameResult {
   winner: Seat | -1; // -1 = draw
   reason: ResultReason;
-  by: Seat;
+  /** Seat that recorded the result, as a string (rules splice it in paths). */
+  by: string;
 }
 
 export interface RoundData {
   deal?: { discard0: number; at?: number | object };
-  actions?: Record<string, OnlineAction>;
-  /** Final self-reveal of the last actor's remaining face-down slots. */
-  final?: Partial<Record<Seat | "0" | "1", Record<number, number>>>;
-  peek?: string;
+  actions?: Record<string, WireAction>;
+  /** Final self-reveals, per seat: slot → value. */
+  final?: Record<string, Record<number, number>>;
+  /** Per-seat peek markers (each player peeks their own secrets). */
+  peek?: Record<string, string>;
 }
 
-/** Opponent absence (ms) before the UI offers to claim the win. Rules enforce 60s. */
+/** Player absence (ms) before the UI offers to claim/exclude. Rules enforce 60s. */
 export const CLAIM_AFTER_MS = 75_000;
 
 /** A lobby nobody joined for this long is treated as expired client-side. */
