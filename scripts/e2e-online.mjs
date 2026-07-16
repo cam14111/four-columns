@@ -221,13 +221,15 @@ const createGame = async (page, players) => {
 
 /** From a terminal overlay (or Home) back to the Home screen. */
 const backHome = async (page) => {
-  const btn = page.getByRole("button", { name: "Menu principal" });
-  if ((await btn.count()) > 0) {
-    try {
-      await btn.first().click({ timeout: 3000 });
-    } catch {
-      /* already on Home */
-    }
+  // The end-of-game panel slides in ~1s after the result lands — wait for
+  // the button to become clickable instead of sampling instantly.
+  try {
+    await page
+      .getByRole("button", { name: "Menu principal" })
+      .first()
+      .click({ timeout: 8000 });
+  } catch {
+    /* already on Home */
   }
   await page.waitForSelector("text=Mode de jeu", { timeout: 15_000 });
 };

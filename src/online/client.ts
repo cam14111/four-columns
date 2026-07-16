@@ -947,15 +947,23 @@ export class OnlineGame {
         await this.writeResult(r.state);
         return;
       }
-      // 3) A leave intent or an exclusion flag is pending → convert it into
-      //    a logged forfeit. Any client may try; the rules only accept the
+      // 3) Leave intents or exclusion flags are pending → convert them into
+      //    logged forfeits. Any client may try; the rules only accept the
       //    turn holder (or anyone, when the turn holder is the one who
-      //    left/vanished).
-      const leaver = this.pendingLeaver(r);
-      if (leaver !== null) {
+      //    left/vanished) — so try every pending seat until one write lands,
+      //    and let the recompute drive the next pass.
+      const leavers = this.pendingLeavers(r);
+      if (leavers.length > 0) {
         await new Promise((res) => setTimeout(res, 300 * this.mySeat));
         if (this.destroyed) return;
-        await this.commitForfeit(leaver);
+        for (const seat of leavers) {
+          try {
+            await this.commitForfeit(seat);
+            break;
+          } catch {
+            /* not permitted for this seat — try the next one */
+          }
+        }
         return;
       }
       // 4) Every active player ready for the next round → deal it.
@@ -983,15 +991,19 @@ export class OnlineGame {
     }
   }
 
-  private pendingLeaver(r: ReplayResult): Seat | null {
+  private pendingLeavers(r: ReplayResult): Seat[] {
+    const out: Seat[] = [];
     for (let seat = 0; seat < this.playerCount; seat++) {
       if (!this.leaveFlags[String(seat)] && !this.forfeitFlags[String(seat)]) {
         continue;
       }
       if (r.state.players[seat]?.out) continue;
-      return seat;
+      // The current turn holder first: converting them is what unblocks the
+      // table, and it is the write most likely to be accepted.
+      if (seat === r.state.currentPlayer) out.unshift(seat);
+      else out.push(seat);
     }
-    return null;
+    return out;
   }
 
   private allActiveReady(r: ReplayResult): boolean {
