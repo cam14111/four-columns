@@ -1,6 +1,7 @@
-// The whole online-duel flow: setup (create / join a game), lobby (share the
-// code), the live board, and every terminal screen — reusing GameScreen and
-// Overlays so an online game looks and feels exactly like the local modes.
+// The whole online flow: setup (create / join a game), lobby (share the code,
+// watch the seats fill, start), the live board, and every terminal screen —
+// reusing GameScreen and Overlays so an online game looks and feels exactly
+// like the local modes, from 2 up to 8 players.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -8,12 +9,14 @@ import {
   BookOpen,
   Check,
   Copy,
+  Crown,
   Flag,
   Home as HomeIcon,
   Loader2,
   Play,
   Settings as SettingsIcon,
   Share2,
+  Users,
   Wifi,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,13 +24,18 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Settings } from "@/game/settings";
 import { useOnlineDuel } from "@/hooks/useOnlineDuel";
-import type { OnlineErrorCode } from "@/online/client";
+import type { OnlineErrorCode, OnlineSnapshot } from "@/online/client";
 import {
   clearOnlineSession,
   loadOnlineSession,
   OnlineSession,
 } from "@/online/session";
-import { CODE_LENGTH, normalizeGameCode } from "@/online/protocol";
+import {
+  CODE_LENGTH,
+  MAX_PLAYERS,
+  MIN_PLAYERS,
+  normalizeGameCode,
+} from "@/online/protocol";
 import { GameScreen } from "./GameScreen";
 import { Overlays } from "./Overlays";
 import { Panel } from "./screens/Panel";
@@ -48,7 +56,8 @@ interface OnlineModeProps {
 
 const ERROR_TEXT: Record<OnlineErrorCode, string> = {
   "not-found": "Code invalide ou partie introuvable.",
-  full: "Cette partie a déjà deux joueurs.",
+  full: "Cette partie est déjà complète.",
+  started: "Cette partie a déjà commencé sans vous.",
   expired: "Cette partie a expiré ou est déjà terminée.",
   network: "Connexion impossible. Vérifiez votre réseau et réessayez.",
   corrupted: "La partie est corrompue et ne peut pas continuer.",
@@ -123,7 +132,7 @@ export const OnlineMode = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configured]);
 
-  // A dead resume target (opponent cleaned up a finished game) must not trap
+  // A dead resume target (a finished game cleaned up remotely) must not trap
   // the user in an error loop on next launch.
   useEffect(() => {
     if (
@@ -171,11 +180,15 @@ export const OnlineMode = ({
     return (
       <OnlineSetup
         name={settings.playerName}
+        players={settings.onlinePlayers}
         configured={configured}
         initialCode={intent.type === "join" ? intent.code : ""}
         session={session}
         onNameChange={(playerName) => patchSettings({ playerName })}
-        onCreate={() => void online.create(name, settings.scoreLimit)}
+        onPlayersChange={(onlinePlayers) => patchSettings({ onlinePlayers })}
+        onCreate={() =>
+          void online.create(name, settings.scoreLimit, settings.onlinePlayers)
+        }
         onJoin={(code) => void online.join(code, name)}
         onResume={(s) => void online.resume(s)}
         onBack={onExit}
@@ -188,9 +201,14 @@ export const OnlineMode = ({
   if (snap.status === "lobby") {
     return (
       <OnlineLobby
-        code={snap.code}
+        snap={snap}
+        onStart={() => void online.startEarly()}
         onCancel={() => {
           void online.cancelLobby();
+          onExit();
+        }}
+        onLeave={() => {
+          online.leave();
           onExit();
         }}
       />
@@ -236,12 +254,13 @@ export const OnlineMode = ({
         onOpenMenu={() => setPanel("menu")}
         online={{
           mySeat: snap.mySeat,
-          opponentOnline: snap.opponentOnline,
+          players: snap.players,
           connected: snap.connected,
           awaitingReveal: snap.awaitingReveal,
           busy: snap.busy,
           canClaimVictory: snap.canClaimVictory,
           onClaim: () => void online.claimVictory(),
+          onExclude: (seat) => void online.excludePlayer(seat),
         }}
       />
       <Overlays
@@ -255,10 +274,11 @@ export const OnlineMode = ({
         online={{
           mySeat: snap.mySeat,
           result: snap.result,
-          nextReady: snap.nextReady,
-          opponentOnline: snap.opponentOnline,
+          players: snap.players,
+          myNextReady: snap.myNextReady,
           canClaimVictory: snap.canClaimVictory,
           onClaim: () => void online.claimVictory(),
+          onExclude: (seat) => void online.excludePlayer(seat),
           onLeave: () => {
             online.leave();
             onExit();
@@ -274,11 +294,17 @@ export const OnlineMode = ({
         <Panel title="Menu" onClose={() => setPanel(null)}>
           <OnlineMenu
             gameLive={snap.status === "playing"}
+            playerCount={snap.playerCount}
             onResume={() => setPanel(null)}
             onOpen={(p) => setPanel(p)}
             onAbandon={() => {
               void online.abandon();
               setPanel(null);
+              if (snap.playerCount > 2) {
+                // The table plays on without me — nothing left to watch.
+                online.leave();
+                onExit();
+              }
             }}
             onHome={() => {
               setPanel(null);
@@ -303,25 +329,29 @@ export const OnlineMode = ({
 };
 
 // ---------------------------------------------------------------------------
-// Setup: create a game or join with a code
+// Setup: create a game (choosing the table size) or join with a code
 // ---------------------------------------------------------------------------
 
 const OnlineSetup = ({
   name,
+  players,
   configured,
   initialCode,
   session,
   onNameChange,
+  onPlayersChange,
   onCreate,
   onJoin,
   onResume,
   onBack,
 }: {
   name: string;
+  players: number;
   configured: boolean | null;
   initialCode: string;
   session: OnlineSession | null;
   onNameChange: (n: string) => void;
+  onPlayersChange: (n: number) => void;
   onCreate: () => void;
   onJoin: (code: string) => void;
   onResume: (s: OnlineSession) => void;
@@ -330,6 +360,10 @@ const OnlineSetup = ({
   const [code, setCode] = useState(initialCode);
   const cleanCode = normalizeGameCode(code);
   const nameOk = name.trim().length > 0;
+  const counts = Array.from(
+    { length: MAX_PLAYERS - MIN_PLAYERS + 1 },
+    (_, i) => MIN_PLAYERS + i
+  );
 
   return (
     <Shell onBack={onBack}>
@@ -337,9 +371,9 @@ const OnlineSetup = ({
         <div className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-amber-300/15 text-amber-300 ring-1 ring-amber-300/30">
           <Wifi size={26} />
         </div>
-        <h1 className="text-3xl font-black tracking-tight">Duel en ligne</h1>
+        <h1 className="text-3xl font-black tracking-tight">Partie en ligne</h1>
         <p className="mt-1 text-white/70">
-          Deux téléphones, une seule partie. Sans compte.
+          De 2 à 8 joueurs, chacun sur son téléphone. Sans compte.
         </p>
       </div>
 
@@ -371,9 +405,33 @@ const OnlineSetup = ({
             className="h-12 w-full text-base"
           >
             <Play className="mr-2" size={18} />
-            Reprendre le duel en cours
+            Reprendre la partie en cours
           </Button>
         )}
+
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-white/60">
+            Nombre de joueurs
+          </label>
+          <div className="grid grid-cols-7 gap-1">
+            {counts.map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => onPlayersChange(n)}
+                aria-label={`${n} joueurs`}
+                className={cn(
+                  "rounded-lg py-2 text-sm font-bold transition-colors",
+                  players === n
+                    ? "bg-amber-300 text-slate-900"
+                    : "bg-white/10 text-white/80 hover:bg-white/15"
+                )}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <Button
           onClick={onCreate}
@@ -418,19 +476,26 @@ const OnlineSetup = ({
 };
 
 // ---------------------------------------------------------------------------
-// Lobby: waiting for the opponent
+// Lobby: watch the seats fill up, share the invite, start
 // ---------------------------------------------------------------------------
 
 const OnlineLobby = ({
-  code,
+  snap,
+  onStart,
   onCancel,
+  onLeave,
 }: {
-  code: string;
+  snap: OnlineSnapshot;
+  onStart: () => void;
   onCancel: () => void;
+  onLeave: () => void;
 }) => {
   const [copied, setCopied] = useState(false);
+  const code = snap.code;
   const link = `${location.origin}${location.pathname}?join=${code}`;
   const canShare = typeof navigator.share === "function";
+  const seated = snap.players.length;
+  const missing = snap.maxPlayers - seated;
 
   const copy = useCallback(async () => {
     try {
@@ -445,8 +510,8 @@ const OnlineLobby = ({
   const share = useCallback(async () => {
     try {
       await navigator.share({
-        title: "4 Columns — Duel en ligne",
-        text: `Rejoins-moi pour un duel 4 Columns ! Code : ${code}`,
+        title: "4 Columns — Partie en ligne",
+        text: `Rejoins-nous pour une partie de 4 Columns ! Code : ${code}`,
         url: link,
       });
     } catch {
@@ -457,9 +522,11 @@ const OnlineLobby = ({
   return (
     <Shell>
       <div className="space-y-5 text-center">
-        <h1 className="text-2xl font-extrabold">Partie créée !</h1>
+        <h1 className="text-2xl font-extrabold">
+          {snap.isHost ? "Partie créée !" : "Vous y êtes !"}
+        </h1>
         <p className="text-white/70">
-          Partagez ce code avec votre adversaire :
+          Partagez ce code avec les autres joueurs :
         </p>
 
         <div className="mx-auto rounded-2xl bg-white/5 px-6 py-4 ring-1 ring-amber-300/40">
@@ -492,18 +559,72 @@ const OnlineLobby = ({
           )}
         </div>
 
-        <div className="flex items-center justify-center gap-3 py-2 text-white/80">
-          <Loader2 className="animate-spin text-amber-300" size={20} />
-          En attente d'un adversaire…
+        {/* Seats */}
+        <div className="space-y-1.5 rounded-2xl bg-white/5 p-3 text-left ring-1 ring-white/10">
+          <div className="mb-2 flex items-center justify-between px-1 text-xs font-semibold text-white/60">
+            <span className="flex items-center gap-1.5">
+              <Users size={14} />
+              Joueurs
+            </span>
+            <span>
+              {seated}/{snap.maxPlayers}
+            </span>
+          </div>
+          {snap.players.map((p) => (
+            <div
+              key={p.seat}
+              className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-sm"
+            >
+              <span className="grid h-6 w-6 place-items-center rounded-full bg-sky-500/80 text-xs font-bold">
+                {(p.name[0] || "?").toUpperCase()}
+              </span>
+              <span className="flex-1 truncate font-medium">
+                {p.name}
+                {p.isMe ? " (vous)" : ""}
+              </span>
+              {p.seat === 0 && (
+                <Crown size={14} className="text-amber-300" aria-label="Hôte" />
+              )}
+            </div>
+          ))}
+          {Array.from({ length: missing }, (_, i) => (
+            <div
+              key={`empty-${i}`}
+              className="flex items-center gap-2 rounded-xl border border-dashed border-white/15 px-3 py-2 text-sm text-white/40"
+            >
+              <Loader2 size={14} className="animate-spin text-amber-300/70" />
+              En attente d'un joueur…
+            </div>
+          ))}
         </div>
+
+        {snap.canStartEarly && (
+          <Button
+            onClick={onStart}
+            className="h-12 w-full bg-emerald-500 text-base font-bold text-white hover:bg-emerald-600"
+          >
+            <Play className="mr-2" size={18} />
+            Commencer à {seated} joueur{seated > 1 ? "s" : ""}
+          </Button>
+        )}
+
         <p className="text-xs text-white/50">
-          La partie démarre automatiquement dès qu'il rejoint. Vous pouvez
-          fermer l'application : la partie vous attendra.
+          {snap.isHost
+            ? missing > 0
+              ? "La partie démarre automatiquement quand tout le monde est là. Vous pouvez fermer l'application : la partie vous attendra."
+              : "Tout le monde est là — lancement…"
+            : "La partie démarre automatiquement quand tout le monde est là, ou dès que l'hôte la lance."}
         </p>
 
-        <Button variant="secondary" onClick={onCancel} className="w-full">
-          Annuler la partie
-        </Button>
+        {snap.isHost ? (
+          <Button variant="secondary" onClick={onCancel} className="w-full">
+            Annuler la partie
+          </Button>
+        ) : (
+          <Button variant="secondary" onClick={onLeave} className="w-full">
+            Quitter le salon (vous pourrez revenir)
+          </Button>
+        )}
       </div>
     </Shell>
   );
@@ -515,12 +636,14 @@ const OnlineLobby = ({
 
 const OnlineMenu = ({
   gameLive,
+  playerCount,
   onResume,
   onOpen,
   onAbandon,
   onHome,
 }: {
   gameLive: boolean;
+  playerCount: number;
   onResume: () => void;
   onOpen: (p: "rules" | "settings") => void;
   onAbandon: () => void;
@@ -555,7 +678,9 @@ const OnlineMenu = ({
         (confirming ? (
           <div className="space-y-2 rounded-xl bg-rose-500/10 p-3 ring-1 ring-rose-400/30">
             <p className="text-sm text-rose-200">
-              Abandonner ? Votre adversaire remporte la partie.
+              {playerCount > 2
+                ? "Abandonner ? La partie continuera sans vous."
+                : "Abandonner ? Votre adversaire remporte la partie."}
             </p>
             <div className="flex gap-2">
               <Button

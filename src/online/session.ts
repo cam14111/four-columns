@@ -20,7 +20,9 @@ export const loadOnlineSession = (): OnlineSession | null => {
     const parsed = JSON.parse(raw) as OnlineSession;
     if (
       typeof parsed?.code !== "string" ||
-      (parsed?.seat !== 0 && parsed?.seat !== 1)
+      !Number.isInteger(parsed?.seat) ||
+      parsed.seat < 0 ||
+      parsed.seat > 7
     ) {
       return null;
     }

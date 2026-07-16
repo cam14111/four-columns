@@ -83,7 +83,7 @@ export const Home = ({
         </h1>
         <p className="mt-2 text-center text-white/70">
           {online
-            ? "Videz vos colonnes, gardez le plus petit total. Chacun sur son téléphone."
+            ? "Videz vos colonnes, gardez le plus petit total. De 2 à 8 joueurs, chacun sur son téléphone."
             : duo
               ? "Videz vos colonnes, gardez le plus petit total. À deux, sur le même téléphone."
               : "Videz vos colonnes, gardez le plus petit total. Vous contre l'ordinateur."}
@@ -169,8 +169,8 @@ export const Home = ({
           )}
           {online && (
             <p className="text-xs text-white/50">
-              Créez une partie privée et invitez votre adversaire avec un code
-              ou un lien. Aucun compte nécessaire.
+              Créez une partie privée de 2 à 8 joueurs et invitez-les avec un
+              code ou un lien. Aucun compte nécessaire.
             </p>
           )}
         </div>
@@ -183,7 +183,7 @@ export const Home = ({
               className="h-12 w-full text-base"
             >
               <Wifi className="mr-2" size={18} />
-              Reprendre le duel en ligne
+              Reprendre la partie en ligne
             </Button>
           )}
           {hasSavedGame && !online && (
