@@ -692,22 +692,25 @@ const main = async () => {
     await pageF.getByPlaceholder("Votre nom").fill("Fanny");
     await pageF.getByRole("button", { name: "Rejoindre" }).click();
     await waitSnap(pageA, (s) => s.status === "playing", "partie à 3 lancée", 45_000);
-    // Fanny vanishes immediately; the table stalls when her turn comes.
+    // Fanny vanishes immediately; the others play on until her turn stalls
+    // the table, then the exclusion becomes available (60s rules-side).
     await pageF.close();
-    const claimSnap = await waitSnap(
-      pageA,
-      (s) => s.players?.[2]?.canExclude === true,
+    const claimSnap = await playUntil(
+      [pageA, pageB2],
+      (s) => s.players?.some((p) => p.canExclude === true),
       "exclusion proposée après absence",
-      180_000
+      900
     );
-    check(claimSnap.players[2].canExclude, "bouton d'exclusion disponible");
+    const fSeat = claimSnap.players.findIndex((p) => p.canExclude);
+    check(fSeat >= 0 && claimSnap.players[fSeat].name === "Fanny",
+      "exclusion proposée pour la joueuse absente");
     // The exclude affordance lives on the stalled banner (board) or the
     // round-over panel, depending on where the game is blocked.
     const excludeBtn = pageA
       .getByRole("button", { name: /Exclure|Continuer sans Fanny/ })
       .first();
     await excludeBtn.click({ timeout: 10_000 });
-    await waitSnap(pageA, (s) => s.outs?.[2] === true, "Fanny exclue", 30_000);
+    await waitSnap(pageA, (s) => s.outs?.[fSeat] === true, "Fanny exclue", 30_000);
     const contSnap = await snapOf(pageA);
     check(contSnap.status === "playing", "la partie continue à 2 après exclusion");
     await playUntil([pageA, pageB2], (s) => s.phase === "draw" || s.phase === "decide", "reprise à 2", 60);

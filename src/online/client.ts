@@ -396,9 +396,11 @@ export class OnlineGame {
       this.leaveFlags = (s.val() ?? {}) as Flags;
       this.recompute();
     });
+    // Deliberately NOT sticky: a locally-echoed optimistic write that the
+    // server rejects must vanish on rollback, or a phantom flag would poison
+    // the upkeep (and the game is over anyway if the tree gets deleted).
     listen(P.forfeits(c), (s) => {
-      const v = (s.val() ?? {}) as Flags;
-      this.forfeitFlags = Object.keys(v).length ? v : this.forfeitFlags;
+      this.forfeitFlags = (s.val() ?? {}) as Flags;
       this.recompute();
     });
     listen(P.rematch(c), (s) => {
