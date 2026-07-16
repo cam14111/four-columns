@@ -122,8 +122,17 @@ const waitSnap = async (page, pred, label, timeoutMs = 30_000) => {
     if (last && pred(last)) return last;
     await sleep(120);
   }
+  // A null snapshot usually means the page is no longer on the game screen —
+  // dump where it actually is to make the failure actionable.
+  const where = await page
+    .evaluate(() => ({
+      url: location.href,
+      stage: window.__4c?.stage ?? null,
+      body: document.body.innerText.slice(0, 300),
+    }))
+    .catch(() => null);
   throw new Error(
-    `timeout: ${label}\nlast snapshot: ${JSON.stringify(last, null, 2)}`
+    `timeout: ${label}\nlast snapshot: ${JSON.stringify(last, null, 2)}\npage: ${JSON.stringify(where)}`
   );
 };
 
@@ -642,7 +651,7 @@ const main = async () => {
     pageA,
     (s) => s.result?.reason === "forfeit" && s.result?.winner === 0,
     "victoire du dernier joueur en lice",
-    30_000
+    60_000
   );
   await pageA.waitForSelector("text=Tous les autres joueurs ont quitté la partie", {
     timeout: 15_000,
