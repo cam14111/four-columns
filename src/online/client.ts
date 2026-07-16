@@ -897,9 +897,12 @@ export class OnlineGame {
     const round = this.currentRound;
     if (!r || !round) return;
     if (r.state.players[seat]?.out) return; // already applied
-    await this.commitAction(round, r, { seat, type: "forfeit" }, {
-      [P.forfeit(this.code, seat)]: true,
-    });
+    // The flag node is write-once: only include it while still unset (an
+    // exclusion may have flagged the seat before the log caught up).
+    const extra = this.forfeitFlags[String(seat)]
+      ? {}
+      : { [P.forfeit(this.code, seat)]: true };
+    await this.commitAction(round, r, { seat, type: "forfeit" }, extra);
   }
 
   // -------------------------------------------------------------------------
@@ -942,9 +945,10 @@ export class OnlineGame {
         await this.writeResult(r.state);
         return;
       }
-      // 3) A leave intent is pending → convert it into a logged forfeit.
-      //    Any client may try; the rules only accept the turn holder (or
-      //    anyone, when the turn holder is the one who left/vanished).
+      // 3) A leave intent or an exclusion flag is pending → convert it into
+      //    a logged forfeit. Any client may try; the rules only accept the
+      //    turn holder (or anyone, when the turn holder is the one who
+      //    left/vanished).
       const leaver = this.pendingLeaver(r);
       if (leaver !== null) {
         await new Promise((res) => setTimeout(res, 300 * this.mySeat));
@@ -958,7 +962,10 @@ export class OnlineGame {
         r.state.phase === "roundOver" &&
         this.allActiveReady(r)
       ) {
-        await this.dealNextRound(r.state.round + 1);
+        await this.dealNextRound(
+          r.state.round + 1,
+          activeSeats(r.state.players)[0] ?? 0
+        );
         return;
       }
       // 5) A move of mine was interrupted between peek and action → finish it.
@@ -976,7 +983,9 @@ export class OnlineGame {
 
   private pendingLeaver(r: ReplayResult): Seat | null {
     for (let seat = 0; seat < this.playerCount; seat++) {
-      if (!this.leaveFlags[String(seat)]) continue;
+      if (!this.leaveFlags[String(seat)] && !this.forfeitFlags[String(seat)]) {
+        continue;
+      }
       if (r.state.players[seat]?.out) continue;
       return seat;
     }
@@ -1045,7 +1054,7 @@ export class OnlineGame {
     }
   }
 
-  private async dealNextRound(nextRound: number): Promise<void> {
+  private async dealNextRound(nextRound: number, firstSeat: Seat): Promise<void> {
     const rKey = roundKey(nextRound);
     if (this.rounds.get(rKey)?.discard0 != null) return; // already dealt
     // Stagger by seat so the clients don't race the write every time.
@@ -1064,7 +1073,8 @@ export class OnlineGame {
         [P.state(this.code)]: {
           round: rKey,
           next: actionKey(0),
-          turn: "0",
+          // The setup baton starts with the first seat still in the game.
+          turn: wireSeat(firstSeat),
           phase: "setup",
           cursorRef: pileRef(1),
           nextRound: roundKey(nextRound + 1),
@@ -1191,7 +1201,11 @@ export class OnlineGame {
     if (seat === this.mySeat || this.playerCount <= 2) return;
     this.setBusy(true);
     try {
-      await this.commitForfeit(seat);
+      // Flag first (the rules verify the 60s absence right here), then try
+      // the direct log conversion; if this client may not write it, the flag
+      // makes every client's upkeep retry until whoever can write does.
+      await set(ref(this.db, P.forfeit(this.code, seat)), true).catch(() => {});
+      await this.commitForfeit(seat).catch(() => {});
     } finally {
       this.setBusy(false);
     }

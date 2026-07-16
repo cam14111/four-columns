@@ -1,13 +1,13 @@
-// End-to-end test of the online duel mode against the Firebase emulators.
+// End-to-end test of the online mode (2-8 players) against Firebase emulators.
 //
 // Boots the Auth + Realtime Database emulators (with the real security rules)
-// and the Vite dev server, then drives two Chromium pages — two "phones" —
-// through real UI interactions: create, share code, join, play full rounds,
-// refresh mid-game, disconnect, abandon, claim, error cases, and direct
-// database attacks against the rules.
+// and the Vite dev server, then drives real Chromium pages — real "phones" —
+// through real UI interactions: create, share code, join, auto-start, play
+// full rounds, refresh mid-game, disconnect, abandon, forfeit, exclusion,
+// claim, error cases, and direct database attacks against the rules.
 //
-//   node scripts/e2e-online.mjs            # full suite (includes a ~70s claim wait)
-//   node scripts/e2e-online.mjs --fast     # skip the slow claim-victory case
+//   node scripts/e2e-online.mjs            # full suite (includes ~80s absence waits)
+//   node scripts/e2e-online.mjs --fast     # skip the slow absence-based cases
 //
 // Requires: Java (for the database emulator), Chromium via playwright.
 
@@ -78,22 +78,35 @@ const snapOf = (page) =>
       status: s.status,
       mySeat: s.mySeat,
       myTurn: s.myTurn,
+      started: s.started,
+      maxPlayers: s.maxPlayers,
+      playerCount: s.playerCount,
+      canStartEarly: s.canStartEarly,
       phase: s.game?.phase ?? null,
       round: s.game?.round ?? null,
       currentPlayer: s.game?.currentPlayer ?? null,
       totals: s.game?.players.map((p) => p.totalScore) ?? null,
       roundScores: s.game?.players.map((p) => p.roundScores) ?? null,
+      outs: s.game?.players.map((p) => p.out === true) ?? null,
       held: s.game?.held?.value ?? null,
       awaitingReveal: s.awaitingReveal,
       corrupted: s.corrupted,
       busy: s.busy,
       connected: s.connected,
-      opponentOnline: s.opponentOnline,
+      players: s.players.map((p) => ({
+        seat: p.seat,
+        name: p.name,
+        online: p.online,
+        out: p.out,
+        ready: p.ready,
+        canExclude: p.canExclude,
+        isMe: p.isMe,
+      })),
       canClaimVictory: s.canClaimVictory,
       result: s.result,
       code: s.code,
-      names: s.names,
-      nextReady: s.nextReady,
+      names: s.players.map((p) => p.name),
+      myNextReady: s.myNextReady,
       deck: s.game?.deck.length ?? null,
       grids: s.game?.players.map((p) =>
         p.grid.map((c) => (c === null ? null : c.faceUp ? c.value : "?"))
@@ -120,7 +133,7 @@ const actOnce = async (page, opts = {}) => {
   const s = await snapOf(page);
   if (!s || s.busy) return false;
   // End-of-round panel: press "Manche suivante" once (ready handshake).
-  if (autoRounds && s.phase === "roundOver" && !s.nextReady?.me && !s.result) {
+  if (autoRounds && s.phase === "roundOver" && !s.myNextReady && !s.result) {
     const btn = page.getByRole("button", { name: "Manche suivante" });
     if ((await btn.count()) === 0) return false; // reveal delay — not shown yet
     try {
@@ -167,7 +180,7 @@ const actOnce = async (page, opts = {}) => {
   }
 };
 
-/** Plays both pages until the predicate matches (or a step budget runs out). */
+/** Plays every page until the predicate matches (or a step budget runs out). */
 const playUntil = async (pages, pred, label, maxSteps = 400, opts = {}) => {
   for (let i = 0; i < maxSteps; i++) {
     const s = await snapOf(pages[0]);
@@ -188,6 +201,32 @@ const playUntil = async (pages, pred, label, maxSteps = 400, opts = {}) => {
       dumps.map((d, i) => `page${i}: ${JSON.stringify(d)}`).join("\n")
   );
 };
+
+/** Create a game from the Home screen (name already stored). */
+const createGame = async (page, players) => {
+  await page.getByRole("button", { name: "Jouer en ligne" }).click();
+  await page.getByRole("button", { name: `${players} joueurs` }).click();
+  await page.getByRole("button", { name: "Créer une partie" }).click();
+  return waitSnap(page, (s) => s.status === "lobby", "lobby après création");
+};
+
+/** From a terminal overlay (or Home) back to the Home screen. */
+const backHome = async (page) => {
+  const btn = page.getByRole("button", { name: "Menu principal" });
+  if ((await btn.count()) > 0) {
+    try {
+      await btn.first().click({ timeout: 3000 });
+    } catch {
+      /* already on Home */
+    }
+  }
+  await page.waitForSelector("text=Mode de jeu", { timeout: 15_000 });
+};
+
+const screenshots = async () =>
+  (await import("node:fs/promises")).mkdir("e2e-artifacts", {
+    recursive: true,
+  });
 
 // ---------------------------------------------------------------------------
 
@@ -225,6 +264,7 @@ const main = async () => {
     "http://127.0.0.1:9000/.json?ns=four-columns-duels-default-rtdb"
   );
   await waitForHttp(BASE);
+  await screenshots();
   console.log("▶ environment ready");
 
   // Use the pre-provisioned Chromium if the pinned playwright build isn't
@@ -242,7 +282,7 @@ const main = async () => {
   const ctxB = await browser.newContext(phone); // "phone" B (guest)
   const pageA = await ctxA.newPage();
   const pageB = await ctxB.newPage();
-  for (const [name, page] of [["A", pageA], ["B", pageB]]) {
+  const wirePage = (name, page) => {
     page.on("pageerror", (e) => console.error(`  [${name}] pageerror:`, e));
     page.on("console", (m) => {
       const text = m.text();
@@ -250,10 +290,12 @@ const main = async () => {
         console.error(`  [${name}] ${text.slice(0, 200)}`);
       }
     });
-  }
+  };
+  wirePage("A", pageA);
+  wirePage("B", pageB);
 
-  // ---- 1. Create a game -----------------------------------------------------
-  console.log("▶ 1. création de la partie (A)");
+  // ---- 1. Create a 2-player game ---------------------------------------------
+  console.log("▶ 1. création d'une partie à 2 (A)");
   await pageA.goto(BASE);
   await pageA.getByRole("button", { name: "En ligne" }).click();
   await pageA.getByPlaceholder("Vous").fill("Alice");
@@ -263,11 +305,13 @@ const main = async () => {
   await pageA.getByRole("button", { name: "150" }).click();
   await pageA.getByRole("button", { name: "Fermer" }).click();
   await pageA.getByRole("button", { name: "Jouer en ligne" }).click();
+  await pageA.getByRole("button", { name: "2 joueurs" }).click();
   await pageA.getByRole("button", { name: "Créer une partie" }).click();
   await pageA.waitForSelector("text=Partie créée !", { timeout: 30_000 });
   const lobbyA = await waitSnap(pageA, (s) => s.status === "lobby", "A lobby");
   const code = lobbyA.code;
   check(/^[A-Z0-9]{6}$/.test(code), `code de partie généré (${code})`);
+  check(lobbyA.maxPlayers === 2, "salon à 2 sièges");
 
   // ---- 2. Invalid code, then join by deep link ------------------------------
   console.log("▶ 2. code invalide puis join par lien (B)");
@@ -280,23 +324,25 @@ const main = async () => {
   check(true, "code invalide → message d'erreur");
   await pageB.getByRole("button", { name: "Réessayer" }).click();
 
-  // Name is remembered, so the deep link joins automatically.
+  // Name is remembered, so the deep link joins automatically. The lobby is
+  // full at that point, so the game auto-starts on every device.
   await pageB.goto(`${BASE}?join=${code}`);
   await waitSnap(pageB, (s) => s.status === "playing", "B in game");
   const sA = await waitSnap(pageA, (s) => s.status === "playing", "A in game");
   check(sA.names[0] === "Alice" && sA.names[1] === "Bob", "sièges et noms corrects");
+  check(sA.playerCount === 2 && sA.started === true, "démarrage automatique à salon plein");
 
   // ---- 3. A third player cannot join ----------------------------------------
-  console.log("▶ 3. partie pleine (C)");
+  console.log("▶ 3. partie déjà commencée (C)");
   const ctxC = await browser.newContext();
   const pageC = await ctxC.newPage();
   await pageC.goto(`${BASE}?join=${code}`);
   await pageC.getByPlaceholder("Votre nom").fill("Carol");
   await pageC.getByRole("button", { name: "Rejoindre" }).click();
-  await pageC.waitForSelector("text=Cette partie a déjà deux joueurs", {
+  await pageC.waitForSelector("text=Cette partie a déjà commencé", {
     timeout: 20_000,
   });
-  check(true, "3e joueur refusé");
+  check(true, "3e joueur refusé (partie commencée)");
   await ctxC.close();
 
   // ---- 4. Direct database attacks against the rules -------------------------
@@ -343,13 +389,10 @@ const main = async () => {
     await waitSnap(pageB, (s) => s.status === "playing", "revanche lancée B");
   }
 
-  // ---- 6. Next round via the double-ready handshake --------------------------
-  console.log("▶ 6. manche suivante (double prêt)");
+  // ---- 6. Next round via the everyone-ready handshake ------------------------
+  console.log("▶ 6. manche suivante (tous prêts)");
   // Visual artifact: the end-of-round panel (boards recap + score table).
   await pageA.waitForSelector("text=Fin de la manche", { timeout: 15_000 });
-  await (await import("node:fs/promises")).mkdir("e2e-artifacts", {
-    recursive: true,
-  });
   await pageA.screenshot({ path: "e2e-artifacts/round-over.png" });
   await pageA.getByRole("button", { name: "Manche suivante" }).click();
   await pageA.waitForSelector("text=En attente de Bob", { timeout: 15_000 });
@@ -385,14 +428,20 @@ const main = async () => {
   // ---- 8. Disconnect / reconnect ---------------------------------------------
   console.log("▶ 8. déconnexion de B, bannière côté A, retour de B");
   await pageB.close();
-  await waitSnap(pageA, (s) => s.opponentOnline === false, "A voit B hors ligne", 30_000);
+  await waitSnap(
+    pageA,
+    (s) => s.players[1]?.online === false,
+    "A voit B hors ligne",
+    30_000
+  );
   await pageA.waitForSelector("text=est déconnecté", { timeout: 10_000 });
   check(true, "bannière de déconnexion affichée");
   const pageB2 = await ctxB.newPage();
+  wirePage("B2", pageB2);
   await pageB2.goto(BASE);
-  // The app lands straight back in the duel thanks to the stored session.
-  await waitSnap(pageB2, (s) => s.status === "playing", "B revenu dans le duel", 45_000);
-  await waitSnap(pageA, (s) => s.opponentOnline === true, "A revoit B en ligne");
+  // The app lands straight back in the game thanks to the stored session.
+  await waitSnap(pageB2, (s) => s.status === "playing", "B revenu dans la partie", 45_000);
+  await waitSnap(pageA, (s) => s.players[1]?.online === true, "A revoit B en ligne");
   check(true, "reconnexion transparente (session locale + uid anonyme)");
 
   // ---- 9. Play (greedy) until the score limit ends the game -------------------
@@ -452,19 +501,238 @@ const main = async () => {
   });
   check(true, "B voit sa défaite par abandon");
 
-  // ---- 12. Claim victory (slow: requires 60s+ absence) -------------------------
+  // ---- 12. Four players: lobby, auto-start, sync, forfeits --------------------
+  console.log("▶ 12. partie à 4 joueurs");
+  await backHome(pageA);
+  const lobby4 = await createGame(pageA, 4);
+  const code4 = lobby4.code;
+  check(lobby4.maxPlayers === 4 && lobby4.players.length === 1, "salon 1/4 ouvert");
+
+  await backHome(pageB2);
+  await pageB2.goto(`${BASE}?join=${code4}`); // auto-join (name known)
+  await waitSnap(pageA, (s) => s.players.length === 2, "B assis (2/4)");
+  const early = await waitSnap(pageA, (s) => s.canStartEarly === true, "hôte peut démarrer à 2");
+  check(early.status === "lobby", "salon toujours en attente à 2/4");
+  await pageA.waitForSelector("text=Commencer à 2 joueurs", { timeout: 10_000 });
+  check(true, "bouton de démarrage anticipé visible (hôte)");
+  await pageA.screenshot({ path: "e2e-artifacts/lobby-4p.png" });
+
+  const ctxD = await browser.newContext(phone);
+  const ctxE = await browser.newContext(phone);
+  const pageD = await ctxD.newPage();
+  const pageE = await ctxE.newPage();
+  wirePage("D", pageD);
+  wirePage("E", pageE);
+  for (const [page, name] of [
+    [pageD, "Dave"],
+    [pageE, "Eve"],
+  ]) {
+    await page.goto(`${BASE}?join=${code4}`);
+    await page.getByPlaceholder("Votre nom").fill(name);
+    await page.getByRole("button", { name: "Rejoindre" }).click();
+  }
+  const pages4 = [pageA, pageB2, pageD, pageE];
+  const started4 = [];
+  for (const page of pages4) {
+    started4.push(
+      await waitSnap(page, (s) => s.status === "playing", "4/4 → démarrage auto", 45_000)
+    );
+  }
+  check(
+    started4.every((s) => s.playerCount === 4 && s.maxPlayers === 4),
+    "démarrage automatique à 4/4"
+  );
+  check(
+    JSON.stringify(started4[0].names) === JSON.stringify(["Alice", "Bob", "Dave", "Eve"]) &&
+      new Set(started4.map((s) => s.mySeat)).size === 4,
+    "quatre sièges distincts, noms corrects"
+  );
+
+  console.log("▶ 13. attaques sur les règles (multi)");
+  await multiAttacks(code4, pageA);
+
+  console.log("▶ 14. manche complète à 4, synchronisée");
+  const r4 = await playUntil(
+    pages4,
+    (s) => s.roundScores?.[0]?.length >= 1,
+    "manche 1 (4 joueurs) terminée",
+    1600
+  );
+  const sides4 = [];
+  for (const page of pages4) {
+    sides4.push(
+      await waitSnap(page, (s) => s.roundScores?.[0]?.length >= 1, "fin de manche partout")
+    );
+  }
+  check(
+    sides4.every(
+      (s) =>
+        JSON.stringify(s.totals) === JSON.stringify(r4.totals) &&
+        JSON.stringify(s.grids) === JSON.stringify(r4.grids)
+    ),
+    `grilles et totaux identiques sur les 4 appareils (${JSON.stringify(r4.totals)})`
+  );
+  await pageA.screenshot({ path: "e2e-artifacts/round-over-4p.png" });
+
+  if (r4.phase !== "gameOver") {
+    console.log("▶ 15. manche suivante à 4 (tous prêts)");
+    for (const page of pages4) {
+      await page.getByRole("button", { name: "Manche suivante" }).click({ timeout: 15_000 });
+    }
+    for (const page of pages4) {
+      await waitSnap(page, (s) => s.round === 2 && s.phase === "setup", "manche 2 partout");
+    }
+    check(true, "les 4 appareils passent en manche 2");
+    // Board artifact: my board + the opponents strip.
+    await playUntil(pages4, (s) => s.phase === "draw" || s.phase === "decide", "milieu de manche 2", 60);
+    await pageA.screenshot({ path: "e2e-artifacts/board-4p.png" });
+  } else {
+    console.log("▶ 15. (fin de partie dès la manche 1 — poignée de main non testée à 4)");
+  }
+
+  console.log("▶ 16. abandon en cours de partie à 4 (Eve) — la table continue");
+  await pageE.getByRole("button", { name: "Menu" }).click();
+  await pageE.getByRole("button", { name: "Abandonner la partie" }).click();
+  await pageE.getByRole("button", { name: "Confirmer l'abandon" }).click();
+  const afterForfeit = await waitSnap(
+    pageA,
+    (s) => s.outs?.[3] === true,
+    "A voit le forfait d'Eve",
+    30_000
+  );
+  check(afterForfeit.status === "playing", "la partie continue à 3");
+  check(afterForfeit.result === null, "pas de fin de partie sur un forfait à 4");
+  await ctxE.close();
+
+  // The turn rotation must now skip seat 3 — play a good stretch to verify.
+  const pages3 = [pageA, pageB2, pageD];
+  let sawTurns = 0;
+  for (let i = 0; i < 60; i++) {
+    const s = await snapOf(pageA);
+    if (!s || s.phase === "gameOver") break;
+    check(s.currentPlayer !== 3 || s.phase === "roundOver", "le tour ne revient jamais à Eve");
+    if (s.currentPlayer === 3 && s.phase !== "roundOver") break;
+    sawTurns++;
+    let acted = false;
+    for (const page of pages3) {
+      if (await actOnce(page, { autoRounds: true })) {
+        acted = true;
+        break;
+      }
+    }
+    if (i % 15 !== 0) {
+      // keep the log terse: only assert every 15 steps
+    }
+    await sleep(acted ? 120 : 180);
+  }
+  check(sawTurns >= 40, "la partie à 3 (ex-4) avance normalement");
+
+  console.log("▶ 17. départs en cascade → dernier joueur en lice");
+  for (const [page, label] of [
+    [pageD, "Dave"],
+    [pageB2, "Bob"],
+  ]) {
+    await page.getByRole("button", { name: "Menu" }).click();
+    await page.getByRole("button", { name: "Abandonner la partie" }).click();
+    await page.getByRole("button", { name: "Confirmer l'abandon" }).click();
+    console.log(`  (${label} quitte)`);
+    await sleep(800);
+  }
+  await waitSnap(
+    pageA,
+    (s) => s.result?.reason === "forfeit" && s.result?.winner === 0,
+    "victoire du dernier joueur en lice",
+    30_000
+  );
+  await pageA.waitForSelector("text=Tous les autres joueurs ont quitté la partie", {
+    timeout: 15_000,
+  });
+  check(true, "Alice gagne : tous les autres ont quitté");
+  await ctxD.close();
+
+  // ---- 18. Early start: 2 players on a 3-seat lobby ---------------------------
+  console.log("▶ 18. démarrage anticipé (2 joueurs sur un salon de 3)");
+  await backHome(pageA);
+  const lobby3 = await createGame(pageA, 3);
+  const code3 = lobby3.code;
+  await backHome(pageB2);
+  await pageB2.goto(`${BASE}?join=${code3}`);
+  await waitSnap(pageA, (s) => s.canStartEarly === true, "2/3 assis");
+  await pageA.getByRole("button", { name: /Commencer à 2 joueurs/ }).click();
+  const early3 = await waitSnap(pageA, (s) => s.status === "playing", "démarrage anticipé");
+  const early3b = await waitSnap(pageB2, (s) => s.status === "playing", "B suit");
+  check(
+    early3.playerCount === 2 && early3.maxPlayers === 3 && early3b.playerCount === 2,
+    "partie à 2 joueurs sur une donne de 3 grilles"
+  );
+  // A few synchronised moves on the odd-sized deal.
+  await playUntil([pageA, pageB2], (s) => s.phase === "decide" || s.phase === "flip" || s.phase === "replace", "quelques coups", 60);
+  const e3a = await snapOf(pageA);
+  const e3b = await snapOf(pageB2);
+  check(
+    JSON.stringify(e3a.grids) === JSON.stringify(e3b.grids) && e3a.deck === e3b.deck,
+    "synchronisation OK avec des sièges vides"
+  );
+  await pageA.getByRole("button", { name: "Menu" }).click();
+  await pageA.getByRole("button", { name: "Abandonner la partie" }).click();
+  await pageA.getByRole("button", { name: "Confirmer l'abandon" }).click();
+  await waitSnap(pageB2, (s) => s.result?.reason === "abandon", "abandon classique à 2");
+  check(true, "à 2 joueurs, l'abandon reste une victoire immédiate de l'autre");
+
+  // ---- 19. Exclude an absent player (slow: requires 60s+ absence) -------------
   if (!FAST) {
-    console.log("▶ 12. victoire réclamée après absence (≈80s)");
-    // Fresh game between A and B.
-    await pageA.getByRole("button", { name: "Menu principal" }).click();
-    await pageA.getByRole("button", { name: "Jouer en ligne" }).click();
-    await pageA.getByRole("button", { name: "Créer une partie" }).click();
-    const lobby2 = await waitSnap(pageA, (s) => s.status === "lobby", "A lobby 2");
-    await pageB2.getByRole("button", { name: "Menu principal" }).click();
+    console.log("▶ 19. exclusion d'un joueur absent (3 joueurs, ≈80s)");
+    await backHome(pageA);
+    const lobbyX = await createGame(pageA, 3);
+    await backHome(pageB2);
+    await pageB2.goto(`${BASE}?join=${lobbyX.code}`);
+    const ctxF = await browser.newContext(phone);
+    const pageF = await ctxF.newPage();
+    await pageF.goto(`${BASE}?join=${lobbyX.code}`);
+    await pageF.getByPlaceholder("Votre nom").fill("Fanny");
+    await pageF.getByRole("button", { name: "Rejoindre" }).click();
+    await waitSnap(pageA, (s) => s.status === "playing", "partie à 3 lancée", 45_000);
+    // Fanny vanishes immediately; the table stalls when her turn comes.
+    await pageF.close();
+    const claimSnap = await waitSnap(
+      pageA,
+      (s) => s.players?.[2]?.canExclude === true,
+      "exclusion proposée après absence",
+      180_000
+    );
+    check(claimSnap.players[2].canExclude, "bouton d'exclusion disponible");
+    // The exclude affordance lives on the stalled banner (board) or the
+    // round-over panel, depending on where the game is blocked.
+    const excludeBtn = pageA
+      .getByRole("button", { name: /Exclure|Continuer sans Fanny/ })
+      .first();
+    await excludeBtn.click({ timeout: 10_000 });
+    await waitSnap(pageA, (s) => s.outs?.[2] === true, "Fanny exclue", 30_000);
+    const contSnap = await snapOf(pageA);
+    check(contSnap.status === "playing", "la partie continue à 2 après exclusion");
+    await playUntil([pageA, pageB2], (s) => s.phase === "draw" || s.phase === "decide", "reprise à 2", 60);
+    check(true, "le tour circule entre les joueurs restants");
+    await ctxF.close();
+    // Wind the game down.
+    await pageB2.getByRole("button", { name: "Menu" }).click();
+    await pageB2.getByRole("button", { name: "Abandonner la partie" }).click();
+    await pageB2.getByRole("button", { name: "Confirmer l'abandon" }).click();
+    await waitSnap(pageA, (s) => s.result !== null, "partie close", 30_000);
+  } else {
+    console.log("▶ 19. (sauté en mode --fast)");
+  }
+
+  // ---- 20. Claim victory in a duel (slow: requires 60s+ absence) --------------
+  if (!FAST) {
+    console.log("▶ 20. victoire réclamée après absence (duel, ≈80s)");
+    await backHome(pageA);
+    await createGame(pageA, 2);
+    const lobby2 = await snapOf(pageA);
+    await backHome(pageB2);
     await pageB2.goto(`${BASE}?join=${lobby2.code}`); // auto-join (name known)
-    await waitSnap(pageA, (s) => s.status === "playing", "partie 2 lancée");
+    await waitSnap(pageA, (s) => s.status === "playing", "duel 2 lancé");
     await pageB2.close();
-    await waitSnap(pageA, (s) => !s.opponentOnline, "B parti");
+    await waitSnap(pageA, (s) => s.players?.[1]?.online === false, "B parti");
     const claimable = await waitSnap(
       pageA,
       (s) => s.canClaimVictory,
@@ -479,7 +747,7 @@ const main = async () => {
     });
     check(true, "victoire réclamée validée par les règles (60s)");
   } else {
-    console.log("▶ 12. (sauté en mode --fast)");
+    console.log("▶ 20. (sauté en mode --fast)");
   }
 
   await browser.close();
@@ -498,7 +766,7 @@ const main = async () => {
 // Direct attacks with the Firebase SDK (no UI): verify the rules hold.
 // ---------------------------------------------------------------------------
 
-const rulesAttacks = async (code, hostPage, guestPage) => {
+const attackerApp = async () => {
   const { initializeApp } = await import("firebase/app");
   const { getAuth, connectAuthEmulator, signInAnonymously } = await import(
     "firebase/auth"
@@ -513,22 +781,88 @@ const rulesAttacks = async (code, hostPage, guestPage) => {
       databaseURL:
         "https://four-columns-duels-default-rtdb.europe-west1.firebasedatabase.app",
     },
-    "attacker"
+    `attacker-${Math.random().toString(36).slice(2)}`
   );
   const auth = getAuth(app);
   connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
   const db = getDatabase(app);
   connectDatabaseEmulator(db, "127.0.0.1", 9000);
   await signInAnonymously(auth);
+  return { db, ref, get, set };
+};
 
-  const denied = async (promise) => {
-    try {
-      await promise;
-      return false;
-    } catch (e) {
-      return String(e).includes("Permission denied") || String(e).includes("permission_denied");
+const denied = async (promise) => {
+  try {
+    await promise;
+    return false;
+  } catch (e) {
+    return (
+      String(e).includes("Permission denied") ||
+      String(e).includes("permission_denied")
+    );
+  }
+};
+
+/**
+ * A *seated* player probing with direct SDK access under their real
+ * credentials (window.__4cfb is a dev-only handle).
+ */
+const memberProbe = (page, code, expr) =>
+  page.evaluate(async ({ code, expr }) => {
+    const fb = window.__4cfb;
+    if (!fb) return "no-handle";
+    const denied = async (p) => {
+      try {
+        await p;
+        return false;
+      } catch (e) {
+        return String(e).toLowerCase().includes("permission");
+      }
+    };
+    const { db, ref, get, set } = fb;
+    switch (expr) {
+      case "oppCard":
+        return denied(get(ref(db, `secrets/${code}/r1/g1/0`)));
+      case "myCard":
+        return denied(get(ref(db, `secrets/${code}/r1/g0/0`)));
+      case "pileAhead":
+        return denied(get(ref(db, `secrets/${code}/r1/p/50`)));
+      case "forgeValue":
+        // Turn holder writes a draw action with a spoofed value (and in the
+        // wrong phase) — the rules must reject it.
+        return denied(
+          set(ref(db, `games/${code}/rounds/r1/actions/a0000`), {
+            seat: "0",
+            type: "draw",
+            ref: "p/1",
+            value: 99,
+          })
+        );
+      case "outOfTurn":
+        // The guest (seat 1) acts while it is seat 0's turn.
+        return denied(
+          set(ref(db, `games/${code}/rounds/r1/actions/a0000`), {
+            seat: "1",
+            type: "reveal",
+            index: 0,
+            ref: "g1/0",
+            value: 0,
+          })
+        );
+      case "forfeitOnline":
+        // Flag a *connected* player as forfeited: rules demand their own
+        // uid, a leave intent, or a verified 60s absence.
+        return denied(set(ref(db, `games/${code}/forfeits/1`), true));
+      case "restartTamper":
+        // The start is pinned once; nobody can rewrite the player count.
+        return denied(set(ref(db, `games/${code}/start/count`), 2));
+      default:
+        return "unknown";
     }
-  };
+  }, { code, expr });
+
+const rulesAttacks = async (code, hostPage, guestPage) => {
+  const { db, ref, get, set } = await attackerApp();
 
   // A stranger (authenticated, knows the code) cannot read game or secrets.
   check(
@@ -546,7 +880,7 @@ const rulesAttacks = async (code, hostPage, guestPage) => {
   check(
     await denied(
       set(ref(db, `games/${code}/rounds/r1/actions/a0000`), {
-        seat: 0,
+        seat: "0",
         type: "draw",
         ref: "p/1",
         value: 5,
@@ -555,85 +889,64 @@ const rulesAttacks = async (code, hostPage, guestPage) => {
     "étranger : écriture d'une action refusée"
   );
   check(
-    await denied(set(ref(db, `games/${code}/state/turn`), 1)),
+    await denied(set(ref(db, `games/${code}/state/turn`), "1")),
     "étranger : falsification de l'état refusée"
   );
   check(
     await denied(
-      set(ref(db, `games/${code}/result`), { winner: 1, reason: "abandon", by: 0 })
+      set(ref(db, `games/${code}/result`), {
+        winner: 1,
+        reason: "abandon",
+        by: "0",
+      })
     ),
     "étranger : écriture du résultat refusée"
   );
 
-  // A *seated* player cannot read the opponent's face-down cards, peek the
-  // pile, lie about a drawn value, or act out of turn — with direct SDK
-  // access under their real credentials (window.__4cfb is a dev-only handle).
-  const memberProbe = (page, expr) =>
-    page.evaluate(async ({ code, expr }) => {
-      const fb = window.__4cfb;
-      if (!fb) return "no-handle";
-      const denied = async (p) => {
-        try {
-          await p;
-          return false;
-        } catch (e) {
-          return String(e).toLowerCase().includes("permission");
-        }
-      };
-      const { db, ref, get, set } = fb;
-      switch (expr) {
-        case "oppCard":
-          return denied(get(ref(db, `secrets/${code}/r1/g1/0`)));
-        case "myCard":
-          return denied(get(ref(db, `secrets/${code}/r1/g0/0`)));
-        case "pileAhead":
-          return denied(get(ref(db, `secrets/${code}/r1/p/50`)));
-        case "forgeValue":
-          // Turn holder writes a draw action with a spoofed value (and in the
-          // wrong phase) — the rules must reject it.
-          return denied(
-            set(ref(db, `games/${code}/rounds/r1/actions/a0000`), {
-              seat: 0,
-              type: "draw",
-              ref: "p/1",
-              value: 99,
-            })
-          );
-        case "outOfTurn":
-          // The guest (seat 1) acts while it is seat 0's turn.
-          return denied(
-            set(ref(db, `games/${code}/rounds/r1/actions/a0000`), {
-              seat: 1,
-              type: "reveal",
-              index: 0,
-              ref: "g1/0",
-              value: 0,
-            })
-          );
-        default:
-          return "unknown";
-      }
-    }, { code, expr });
-
   check(
-    (await memberProbe(hostPage, "oppCard")) === true,
+    (await memberProbe(hostPage, code, "oppCard")) === true,
     "joueur assis : carte adverse illisible"
   );
   check(
-    (await memberProbe(hostPage, "myCard")) === true,
+    (await memberProbe(hostPage, code, "myCard")) === true,
     "joueur assis : sa propre carte cachée illisible (sans peek légal)"
   );
   check(
-    (await memberProbe(hostPage, "pileAhead")) === true,
+    (await memberProbe(hostPage, code, "pileAhead")) === true,
     "joueur assis : pioche non consultable à l'avance"
   );
   check(
-    (await memberProbe(hostPage, "forgeValue")) === true,
+    (await memberProbe(hostPage, code, "forgeValue")) === true,
     "joueur assis : action avec valeur falsifiée refusée"
   );
   check(
-    (await memberProbe(guestPage, "outOfTurn")) === true,
+    (await memberProbe(guestPage, code, "outOfTurn")) === true,
     "joueur assis : action hors de son tour refusée"
+  );
+};
+
+const multiAttacks = async (code, hostPage) => {
+  const { db, ref, get, set } = await attackerApp();
+
+  check(
+    await denied(set(ref(db, `games/${code}/seats/4`), { uid: "x", name: "X" })),
+    "étranger : siège au-delà du démarrage refusé"
+  );
+  check(
+    await denied(get(ref(db, `secrets/${code}/r1/g3/0`))),
+    "étranger : carte du 4e joueur illisible"
+  );
+  check(
+    (await memberProbe(hostPage, code, "forfeitOnline")) === true,
+    "joueur assis : impossible d'exclure un joueur connecté"
+  );
+  check(
+    (await memberProbe(hostPage, code, "restartTamper")) === true,
+    "joueur assis : nombre de joueurs verrouillé après démarrage"
+  );
+  check(
+    (await memberProbe(hostPage, code, "oppCard")) === true,
+    "joueur assis : cartes des autres joueurs illisibles"
   );
 };
 

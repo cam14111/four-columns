@@ -2,8 +2,8 @@
 
 **4 Columns** est un jeu de cartes qui tourne entièrement dans le navigateur,
 jouable en **solo** (un joueur humain contre une IA), à **deux joueurs sur le
-même téléphone** (mode « chacun son tour » ou « face à face ») ou en **duel en
-ligne** (deux joueurs, deux téléphones, synchronisés en temps réel via
+même téléphone** (mode « chacun son tour » ou « face à face ») ou **en ligne
+de 2 à 8 joueurs** (chacun sur son téléphone, synchronisés en temps réel via
 Firebase — sans compte à créer).
 
 C'est une **PWA** (Progressive Web App) : installable sur mobile et ordinateur,
@@ -33,12 +33,17 @@ obtenir le plus petit total possible.
 - **Interface mobile-first** : grille du joueur à portée du pouce, animations de
   distribution et de retournement 3D, surbrillance des cibles jouables,
   indicateur de « dernier tour ».
-- **Duel en ligne** (deux téléphones) : partie privée créée en un tap,
-  invitation par **code à 6 caractères ou lien de partage**, synchronisation
-  temps réel (Firebase Realtime Database + authentification anonyme),
-  présence de l'adversaire, reconnexion transparente après un rafraîchissement
-  ou une coupure réseau, abandon, victoire réclamée en cas d'adversaire parti,
-  poignée de main « double prêt » entre les manches et revanche en un tap.
+- **Mode en ligne, 2 à 8 joueurs** : partie privée créée en un tap (l'hôte
+  choisit le nombre de sièges), invitation par **code à 6 caractères ou lien
+  de partage**, salon d'attente en direct, démarrage automatique quand tout le
+  monde est là (ou **démarrage anticipé** par l'hôte dès 2 joueurs assis),
+  synchronisation temps réel (Firebase Realtime Database + authentification
+  anonyme), présence de chacun, reconnexion transparente après un
+  rafraîchissement ou une coupure réseau, abandon (à 3+ joueurs **la table
+  continue sans le partant**), **exclusion d'un joueur absent** validée côté
+  base (60 s), victoire réclamée dans les duels, manches enchaînées quand tous
+  les joueurs sont prêts et revanche en un tap. L'interface s'adapte : duel
+  classique à 2, bande d'adversaires compacte et défilante à 3-8.
   La triche est bloquée **côté base de données** (règles de sécurité) : cartes
   cachées illisibles, jeu hors tour impossible, valeurs piochées vérifiées
   contre les secrets. Voir « Mode en ligne » ci-dessous.
@@ -55,13 +60,14 @@ obtenir le plus petit total possible.
   `ai.ts` (politique de l'IA), `settings.ts`, `stats.ts`.
 - `src/hooks/useGame.ts` — pont React : pilote les tours de l'IA, joue les
   sons/vibrations et enregistre les statistiques.
-- `src/online/` — mode duel en ligne (chargé **paresseusement**, la PWA
+- `src/online/` — mode en ligne 2-8 joueurs (chargé **paresseusement**, la PWA
   hors-ligne n'en dépend pas) :
   - `protocol.ts` — schéma du protocole (codes de partie, donne, actions,
     références de cartes) ;
   - `replay.ts` — projection **déterministe** : (donne + journal d'actions) →
-    `GameState` via le moteur pur, les deux téléphones rejouent le même
-    journal et sont identiques par construction ;
+    `GameState` via le moteur pur, tous les téléphones rejouent le même
+    journal et sont identiques par construction (forfaits inclus, ordonnés
+    dans le journal) ;
   - `client.ts` — client Realtime Database (créer/rejoindre/reprendre,
     présence, écritures d'actions avec divulgation contrôlée des secrets,
     auto-réparation après crash/refresh) ;
@@ -81,44 +87,57 @@ localement via **`localStorage`** :
 - `four-columns:settings` — nom, difficulté, limite de score, sons, vibrations.
 - `four-columns:stats` — statistiques cumulées.
 - `four-columns:game` — partie en cours (reprise après rechargement).
-- `four-columns:online-session` — pointeur vers le duel en ligne en cours
+- `four-columns:online-session` — pointeur vers la partie en ligne en cours
   (code + siège), pour la reprise automatique.
 
 Solo et local fonctionnent hors-ligne, gratuitement, sur un seul appareil.
-Seul le mode **duel en ligne** échange des données, exclusivement avec votre
+Seul le mode **en ligne** échange des données, exclusivement avec votre
 projet Firebase.
 
 > Note : des versions précédentes utilisaient Supabase puis un historique local
 > par manche ; ces mécanismes ont été remplacés par ce stockage minimal.
 
-## Mode en ligne (duel à deux téléphones)
+## Mode en ligne (2 à 8 joueurs, chacun son téléphone)
 
 ### Comment ça marche
 
-- **Créer** : écran d'accueil → « En ligne » → « Créer une partie ». Un code à
-  6 caractères (et un lien `…/?join=CODE`) est généré à partager. La partie
-  démarre dès que l'adversaire rejoint.
+- **Créer** : écran d'accueil → « En ligne » → choisir le **nombre de
+  joueurs** (2 à 8) → « Créer une partie ». Un code à 6 caractères (et un lien
+  `…/?join=CODE`) est généré à partager. Le salon affiche les sièges qui se
+  remplissent ; la partie démarre automatiquement quand tout le monde est là,
+  et l'hôte peut aussi **commencer plus tôt** avec les joueurs déjà assis.
 - **Rejoindre** : via le lien, ou « En ligne » → saisir le code. Aucun compte :
   l'authentification est **anonyme** (l'identité persiste sur l'appareil, ce
   qui permet la reprise).
 - **Fiabilité** : rafraîchissement, fermeture de l'app, coupure réseau →
-  retour automatique dans le duel, à l'état exact. Présence de l'adversaire
-  affichée en direct ; s'il disparaît plus d'une minute, vous pouvez
-  **réclamer la victoire** (validée côté serveur). Abandon possible à tout
-  moment ; les manches s'enchaînent quand **les deux** joueurs sont prêts ;
-  revanche en un tap à la fin.
+  retour automatique dans la partie, à l'état exact. Présence de chacun
+  affichée en direct. Dans un duel, si l'adversaire disparaît plus d'une
+  minute, vous pouvez **réclamer la victoire** ; à 3 joueurs et plus, un
+  joueur absent qui bloque la table peut être **exclu** (les règles vérifient
+  60 s d'absence réelle) et la partie continue sans lui — comme après un
+  abandon volontaire. Les manches s'enchaînent quand **tous** les joueurs
+  encore en lice sont prêts ; revanche en un tap à la fin.
+- **Interface** : à 2 joueurs, le duel classique (adversaire en miroir en
+  haut) ; à 3 joueurs et plus, votre plateau reste en grand en bas et les
+  adversaires occupent une bande compacte en haut — plateaux miniatures,
+  score visible, joueur actif mis en avant et centré automatiquement, bande
+  défilante quand ils sont nombreux.
 
 ### Architecture & sécurité
 
-Les deux clients rejouent le **même journal d'actions** à travers le moteur
-pur : états, scores et animations sont identiques par construction. Les
+Tous les clients rejouent le **même journal d'actions** à travers le moteur
+pur : états, scores et animations sont identiques par construction — les
+départs (abandons, exclusions) sont eux-mêmes des actions du journal, donc
+appliqués au même moment partout. Les
 valeurs des cartes vivent dans un sous-arbre `secrets/` **illisible via
 l'API** ; une valeur ne devient publique qu'incluse dans une action, et les
 règles RTDB **vérifient qu'elle correspond au secret**. Les règles imposent
-aussi : joueurs assis uniquement, tour par tour (`state.turn`), journal en
-append-only (`state.next`), phases cohérentes, pioche dans l'ordre
-(`state.cursorRef`), interdiction de « regarder la pioche puis prendre la
-défausse », réclamation de victoire seulement après 60 s d'absence réelle.
+aussi : joueurs assis uniquement, sièges contigus et nombre de joueurs
+verrouillé au démarrage, tour par tour (`state.turn`), journal en append-only
+(`state.next`), phases cohérentes, pioche dans l'ordre (`state.cursorRef`),
+interdiction de « regarder la pioche puis prendre la défausse », révélations
+de fin de manche vérifiées **par siège**, exclusion/réclamation seulement
+après 60 s d'absence réelle (ou sur intention de départ signée du partant).
 
 Limites connues (contraintes du plan Spark, sans Cloud Functions) : le client
 qui **mélange** une manche connaît transitoirement l'ordre du paquet (un
@@ -159,17 +178,20 @@ payant. Les parties terminées sont supprimées par le client au retour au menu.
 ### Tests de bout en bout (émulateurs)
 
 ```sh
-node scripts/e2e-online.mjs          # suite complète (~5 min, inclut la
-                                     # réclamation de victoire ≈ 80 s)
-node scripts/e2e-online.mjs --fast   # sans le scénario lent
+node scripts/e2e-online.mjs          # suite complète (inclut deux scénarios
+                                     # d'absence ≈ 80 s chacun)
+node scripts/e2e-online.mjs --fast   # sans les scénarios lents
 ```
 
 Le script démarre les **émulateurs Firebase** (Auth + Realtime Database, avec
-les vraies règles) et un serveur Vite, puis pilote **deux navigateurs** à
-travers de vraies interactions : création, code invalide, partie pleine,
-attaques directes sur la base, manches complètes, double prêt,
-rafraîchissement en pleine partie, déconnexion/reconnexion, fin de partie,
-revanche, abandon, victoire réclamée. Prérequis : Java (émulateur RTDB) et
+les vraies règles) et un serveur Vite, puis pilote jusqu'à **six navigateurs**
+à travers de vraies interactions : création, code invalide, partie déjà
+commencée, attaques directes sur la base (2 joueurs et multi), manches
+complètes à 2 puis à 4 joueurs synchronisées sur tous les appareils, poignée
+de main « tous prêts », rafraîchissement en pleine partie,
+déconnexion/reconnexion, fin de partie, revanche, abandons en cascade jusqu'au
+dernier joueur en lice, démarrage anticipé (2 joueurs sur un salon de 3),
+exclusion d'un absent, victoire réclamée. Prérequis : Java (émulateur RTDB) et
 Chromium (Playwright).
 
 ## Cartes

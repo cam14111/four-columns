@@ -231,7 +231,7 @@ export const Overlays = ({
                 <p className="text-white/70">
                   {verdict?.reason === "abandon"
                     ? verdict.winner === online.mySeat
-                      ? "Votre adversaire a abandonné la partie."
+                      ? `${game.players[Number(verdict.by)]?.name ?? "L'adversaire"} a abandonné la partie.`
                       : "Vous avez abandonné la partie."
                     : verdict?.reason === "claim"
                       ? verdict.winner === online.mySeat

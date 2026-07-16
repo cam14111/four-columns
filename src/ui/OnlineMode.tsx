@@ -297,9 +297,9 @@ export const OnlineMode = ({
             playerCount={snap.playerCount}
             onResume={() => setPanel(null)}
             onOpen={(p) => setPanel(p)}
-            onAbandon={() => {
-              void online.abandon();
+            onAbandon={async () => {
               setPanel(null);
+              await online.abandon();
               if (snap.playerCount > 2) {
                 // The table plays on without me — nothing left to watch.
                 online.leave();
