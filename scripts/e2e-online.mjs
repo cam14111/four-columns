@@ -983,8 +983,20 @@ process.on("SIGINT", () => {
   process.exit(130);
 });
 
-main().catch((e) => {
+main().catch(async (e) => {
   console.error("\n❌ e2e failed:", e);
+  // Post-mortem: dump the emulator's game trees (owner token bypasses rules)
+  // so a corrupted/stalled log can be analysed without re-running.
+  try {
+    const res = await fetch(
+      "http://127.0.0.1:9000/games.json?ns=four-columns-duels-default-rtdb&access_token=owner"
+    );
+    console.error("--- games dump ---");
+    console.error(JSON.stringify(await res.json()));
+    console.error("--- end dump ---");
+  } catch {
+    /* emulator already gone */
+  }
   cleanup();
   process.exit(1);
 });
