@@ -39,6 +39,19 @@ export const visibleScore = (grid: Grid): number =>
   grid.reduce((sum, c) => (c && c.faceUp ? sum + c.value : sum), 0);
 
 // ---------------------------------------------------------------------------
+// Active players (multiplayer forfeits)
+// ---------------------------------------------------------------------------
+
+export const isActive = (p: PlayerState): boolean => !p.out;
+
+export const activeCount = (players: PlayerState[]): number =>
+  players.filter(isActive).length;
+
+/** Seats still in the game, in seat order. */
+export const activeSeats = (players: PlayerState[]): number[] =>
+  players.map((_, i) => i).filter((i) => isActive(players[i]));
+
+// ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 
@@ -209,6 +222,33 @@ const applyColumnClear = (
 };
 
 /**
+ * Passes play to the next active (non-forfeited) seat after `from`, or ends
+ * the round when the turn would come back to the player who closed it. The
+ * closer is checked before the out-skip so a forfeited closer still ends the
+ * round instead of being skipped past forever.
+ */
+const advanceAfter = (state: GameState, from: number): GameState => {
+  const n = state.players.length;
+  for (let step = 1; step <= n; step++) {
+    const seat = (from + step) % n;
+    if (state.closedBy !== null && seat === state.closedBy) {
+      return endRound(state);
+    }
+    if (!isActive(state.players[seat])) continue;
+    state.currentPlayer = seat;
+    state.phase = "draw";
+    if (state.closedBy !== null) {
+      state.events.push({ type: "finalTurn", player: seat });
+    }
+    return state;
+  }
+  // No other active player and no closer: the last player standing — the
+  // online layer ends the game before this can happen; freeze defensively.
+  state.phase = "draw";
+  return state;
+};
+
+/**
  * Finalises the current player's turn: handles column clears already applied,
  * round-close detection, the mandatory final turn for opponents, and passing
  * play to the next player (or ending the round).
@@ -223,33 +263,26 @@ const finishTurn = (state: GameState): GameState => {
     state.events.push({ type: "roundClosed", player });
   }
 
-  const next = (player + 1) % state.players.length;
-
-  if (state.closedBy !== null && next === state.closedBy) {
-    return endRound(state);
-  }
-
-  state.currentPlayer = next;
-  state.phase = "draw";
-  if (state.closedBy !== null) {
-    state.events.push({ type: "finalTurn", player: next });
-  }
-  return state;
+  return advanceAfter(state, player);
 };
 
 /** Reveals every card, scores the round, and updates totals. */
 export const endRound = (state: GameState): GameState => {
   const closedBy = state.closedBy ?? state.currentPlayer;
 
-  // Reveal everything for display.
-  state.players = state.players.map((p) => ({
-    ...p,
-    grid: p.grid.map((c) => (c ? { ...c, faceUp: true } : null)),
-  }));
+  // Reveal everything for display. Forfeited players are left untouched:
+  // their remaining face-down values may never have been disclosed (online),
+  // and they are excluded from scoring anyway.
+  state.players = state.players.map((p) =>
+    isActive(p)
+      ? { ...p, grid: p.grid.map((c) => (c ? { ...c, faceUp: true } : null)) }
+      : p
+  );
 
   // The final reveal can complete columns of three identical cards; official
   // rules discard them exactly as during play, before any scoring.
   state.players.forEach((p, playerIndex) => {
+    if (!isActive(p)) return;
     let grid = p.grid;
     for (let col = 0; col < COLS; col++) {
       // Index `col` is the top slot of that column; every card is face-up
@@ -265,18 +298,24 @@ export const endRound = (state: GameState): GameState => {
     if (grid !== p.grid) setGrid(state, playerIndex, grid);
   });
 
-  const rawScores = state.players.map((p) => gridScore(p.grid));
-  const closerScore = rawScores[closedBy];
-  const minOther = Math.min(
-    ...rawScores.filter((_, i) => i !== closedBy)
+  const rawScores = state.players.map((p) =>
+    isActive(p) ? gridScore(p.grid) : 0
   );
+  const closerScore = rawScores[closedBy];
+  const otherScores = rawScores.filter(
+    (_, i) => i !== closedBy && isActive(state.players[i])
+  );
+  const minOther = otherScores.length ? Math.min(...otherScores) : Infinity;
 
   // Skyjo penalty: the player who closed doubles their round score if it is
   // not the strictly lowest, and only when that score is positive.
-  const penalized = closerScore > 0 && closerScore >= minOther;
+  const penalized =
+    isActive(state.players[closedBy]) &&
+    closerScore > 0 &&
+    closerScore >= minOther;
 
   state.players = state.players.map((p, i) => {
-    let round = rawScores[i];
+    let round = isActive(p) ? rawScores[i] : 0;
     if (i === closedBy && penalized) round *= 2;
     return {
       ...p,
@@ -288,7 +327,9 @@ export const endRound = (state: GameState): GameState => {
 
   state.events.push({ type: "roundOver", closedBy, penalized });
 
-  const overLimit = state.players.some((p) => p.totalScore >= state.scoreLimit);
+  const overLimit = state.players.some(
+    (p) => isActive(p) && p.totalScore >= state.scoreLimit
+  );
   if (overLimit) {
     const winner = lowestTotalIndex(state.players);
     state.phase = "gameOver";
@@ -299,12 +340,80 @@ export const endRound = (state: GameState): GameState => {
   return state;
 };
 
+/** Lowest total among *active* players (forfeited players cannot win). */
 export const lowestTotalIndex = (players: PlayerState[]): number => {
-  let best = 0;
-  for (let i = 1; i < players.length; i++) {
-    if (players[i].totalScore < players[best].totalScore) best = i;
+  let best = -1;
+  for (let i = 0; i < players.length; i++) {
+    if (!isActive(players[i])) continue;
+    if (best === -1 || players[i].totalScore < players[best].totalScore) {
+      best = i;
+    }
   }
-  return best;
+  return best === -1 ? 0 : best;
+};
+
+/**
+ * Removes a player from the game (online forfeit: voluntary leave, or an
+ * absent player excluded by the others). Pure, like every other transition.
+ * If it was the leaver's turn, any held card is discarded and play moves on;
+ * when a single active player remains, the game ends in their favour.
+ */
+export const forfeitPlayer = (prev: GameState, seat: number): GameState => {
+  const target = prev.players[seat];
+  if (!target || target.out || prev.phase === "gameOver") return prev;
+
+  const state = clone(prev);
+  state.players[seat] = { ...state.players[seat], out: true };
+  state.events.push({ type: "forfeit", player: seat });
+
+  if (activeCount(state.players) <= 1) {
+    const winner = activeSeats(state.players)[0] ?? lowestTotalIndex(state.players);
+    if (seat === state.currentPlayer && state.held) {
+      state.discard.unshift({ ...state.held, faceUp: true });
+    }
+    state.held = null;
+    state.heldSource = null;
+    state.phase = "gameOver";
+    state.events.push({ type: "gameOver", winner });
+    return state;
+  }
+
+  if (state.phase === "roundOver") return state; // between rounds: mark only
+
+  if (state.phase === "setup") {
+    // The remaining players may now all be ready; otherwise pass the reveal
+    // baton along if it was the leaver's turn.
+    const everyoneReady = state.players.every(
+      (p) => !isActive(p) || countFaceUp(p.grid) >= 2
+    );
+    if (everyoneReady) {
+      const first = determineFirstPlayer(state);
+      state.currentPlayer = first;
+      state.phase = "draw";
+      state.events.push({ type: "firstPlayer", player: first });
+    } else if (seat === state.currentPlayer) {
+      const n = state.players.length;
+      for (let step = 1; step <= n; step++) {
+        const s = (seat + step) % n;
+        if (isActive(state.players[s]) && countFaceUp(state.players[s].grid) < 2) {
+          state.currentPlayer = s;
+          break;
+        }
+      }
+    }
+    return state;
+  }
+
+  if (seat === state.currentPlayer) {
+    // Mid-move: the drawn card goes to the discard, then play moves on. The
+    // leaver's grid never closes the round (they are out), so no closedBy.
+    if (state.held) state.discard.unshift({ ...state.held, faceUp: true });
+    state.held = null;
+    state.heldSource = null;
+    return advanceAfter(state, seat);
+  }
+
+  return state;
 };
 
 // ---------------------------------------------------------------------------
@@ -327,10 +436,10 @@ export const reduce = (prev: GameState, action: GameAction): GameState => {
       setGrid(state, action.player, grid);
 
       if (countFaceUp(grid) >= 2) {
-        // This player is done revealing; move on.
+        // This player is done revealing; move on (skipping forfeited seats).
         const everyoneReady = state.players.every(
           (p, i) =>
-            (i === action.player ? true : countFaceUp(p.grid) >= 2)
+            i === action.player || !isActive(p) || countFaceUp(p.grid) >= 2
         );
         if (everyoneReady) {
           const first = determineFirstPlayer(state);
@@ -338,8 +447,14 @@ export const reduce = (prev: GameState, action: GameAction): GameState => {
           state.phase = "draw";
           state.events.push({ type: "firstPlayer", player: first });
         } else {
-          state.currentPlayer =
-            (state.currentPlayer + 1) % state.players.length;
+          const n = state.players.length;
+          for (let step = 1; step <= n; step++) {
+            const s = (state.currentPlayer + step) % n;
+            if (isActive(state.players[s]) && countFaceUp(state.players[s].grid) < 2) {
+              state.currentPlayer = s;
+              break;
+            }
+          }
         }
       }
       return state;
@@ -439,6 +554,7 @@ export const determineFirstPlayer = (state: GameState): number => {
   let best = 0;
   let bestSum = -Infinity;
   state.players.forEach((p, i) => {
+    if (!isActive(p)) return;
     const sum = visibleScore(p.grid);
     if (sum > bestSum) {
       bestSum = sum;

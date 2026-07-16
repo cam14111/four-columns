@@ -1,19 +1,25 @@
 // Deterministic replay: (deal skeleton + action log [+ final reveals]) → GameState.
 //
-// Both clients feed the exact same inputs through the exact same pure engine,
+// Every client feeds the exact same inputs through the exact same pure engine,
 // so the projected GameState — grids, piles, scores, whose turn it is — is
-// identical on both phones by construction. Card values start as placeholders
-// (face-down cards are secret) and are injected the moment an action makes
-// them public.
+// identical on every device by construction. Card values start as placeholders
+// (face-down cards are secret) and are injected the moment an action or a
+// final reveal makes them public.
 //
 // The one wrinkle is the end of a round: the engine's endRound() flips every
-// remaining face-down card to score them, but their values are still secret at
-// that point. The replay therefore *intercepts* the closing action and holds
-// the round in a synthetic "revealing" state until the last actor has
-// published their remaining values (the round's `final` record); the closing
-// action is then re-applied with real values and scoring proceeds normally.
+// remaining face-down card to score them, but their values may still be secret
+// at that point. The replay therefore *holds* the round-closing action until
+// every player still in the game has published their remaining values (the
+// round's `final` records, one per seat); the closing action is then applied
+// with real values and scoring proceeds normally. While the closing action is
+// held, only forfeits may be appended (a player who never publishes can be
+// excluded, which shrinks the requirement instead of stalling the table).
+//
+// Forfeits travel *in the action log*, so the exact point at which a player
+// leaves is totally ordered with the moves around it — every client applies
+// them at the same position and stays in lockstep.
 
-import { reduce } from "@/game/engine";
+import { activeCount, activeSeats, forfeitPlayer, reduce } from "@/game/engine";
 import {
   Card,
   CardValue,
@@ -22,20 +28,32 @@ import {
   GRID_SIZE,
   PlayerState,
 } from "@/game/types";
-import { gridRef, OnlineAction, PILE_SIZE, pileRef, Seat } from "./protocol";
+import {
+  gridRef,
+  OnlineAction,
+  parseSeat,
+  pileRef,
+  pileSize,
+  Seat,
+} from "./protocol";
 
 export interface RoundInput {
   round: number;
   discard0: number;
   /** Actions in play order (sorted by key). */
   actions: OnlineAction[];
-  /** Final self-reveals, per seat: slot → value. */
-  final?: Partial<Record<"0" | "1", Record<number, number>>>;
+  /** Final self-reveals, per seat ("0".."7"): slot → value. */
+  final?: Record<string, Record<number, number>>;
 }
 
 export interface ReplayConfig {
-  names: [string, string];
+  /** Display names, by seat. */
+  names: string[];
   scoreLimit: number;
+  /** Seats actually playing this game (start.count). */
+  playerCount: number;
+  /** Grids dealt each round (the lobby's maxPlayers) — fixes the pile size. */
+  maxPlayers: number;
 }
 
 export interface ReplayResult {
@@ -48,9 +66,9 @@ export interface ReplayResult {
   awaitingReveal: boolean;
   /** Face-down slots whose values are needed to finish the round. */
   missing: { seat: Seat; slot: number }[];
-  /** An action in the log was illegal for the engine — peer misbehaved. */
+  /** An action in the log was illegal for the engine — peer misbehaving. */
   corrupted: boolean;
-  /** Number of actions applied in the current round (== next action number). */
+  /** Number of actions in the current round (== next action number). */
   actionCount: number;
   /** Ref of the next undrawn pile card ("p/17"). */
   cursorRef: string;
@@ -71,22 +89,26 @@ export const initialRoundState = (
   round: number,
   discard0: number
 ): GameState => {
-  const players: PlayerState[] = ([0, 1] as Seat[]).map((seat) => ({
-    id: `seat${seat}`,
-    name: cfg.names[seat],
-    isAI: false,
-    grid: Array.from({ length: GRID_SIZE }, (_, i) =>
-      placeholderCard(gridRef(seat, i))
-    ),
-    totalScore: prev?.players[seat].totalScore ?? 0,
-    lastRoundScore: prev?.players[seat].lastRoundScore ?? 0,
-    roundScores: prev?.players[seat].roundScores ?? [],
-  }));
+  const players: PlayerState[] = Array.from(
+    { length: cfg.playerCount },
+    (_, seat) => ({
+      id: `seat${seat}`,
+      name: cfg.names[seat] ?? `Joueur ${seat + 1}`,
+      isAI: false,
+      grid: Array.from({ length: GRID_SIZE }, (_, i) =>
+        placeholderCard(gridRef(seat, i))
+      ),
+      totalScore: prev?.players[seat].totalScore ?? 0,
+      lastRoundScore: prev?.players[seat].lastRoundScore ?? 0,
+      roundScores: prev?.players[seat].roundScores ?? [],
+      out: prev?.players[seat].out ?? false,
+    })
+  );
   return {
     mode: "online",
     players,
-    currentPlayer: 0,
-    deck: Array.from({ length: PILE_SIZE - 1 }, (_, j) =>
+    currentPlayer: activeSeats(players)[0] ?? 0,
+    deck: Array.from({ length: pileSize(cfg.maxPlayers) - 1 }, (_, j) =>
       placeholderCard(pileRef(j + 1))
     ),
     discard: [{ id: pileRef(0), value: discard0 as CardValue, faceUp: true }],
@@ -100,7 +122,7 @@ export const initialRoundState = (
     difficulty: "normal",
     events: [],
     // Fixed seed: the engine's internal pile reshuffle (rare: pile exhausted)
-    // must produce the same order on both clients.
+    // must produce the same order on every client.
     rngState: (0xc0ffee ^ round) >>> 0,
   };
 };
@@ -111,7 +133,7 @@ const setGridValue = (
   slot: number,
   value: number
 ): GameState => {
-  const card = state.players[seat].grid[slot];
+  const card = state.players[seat]?.grid[slot];
   if (!card || card.faceUp) return state;
   const players = state.players.slice();
   const grid = players[seat].grid.slice();
@@ -146,6 +168,8 @@ const toGameAction = (a: OnlineAction): GameAction | null => {
       return a.index === undefined ? null : { type: "placeAt", index: a.index };
     case "flip":
       return a.index === undefined ? null : { type: "flipAt", index: a.index };
+    case "forfeit":
+      return null; // handled out of band (forfeitPlayer)
   }
 };
 
@@ -154,6 +178,12 @@ const applyOnlineAction = (
   state: GameState,
   a: OnlineAction
 ): GameState | null => {
+  if (a.type === "forfeit") {
+    const target = state.players[a.seat];
+    if (!target || target.out) return null;
+    const next = forfeitPlayer(state, a.seat);
+    return next === state ? null : next;
+  }
   let st = state;
   if (
     (a.type === "reveal" || a.type === "flip" || a.type === "place") &&
@@ -173,38 +203,18 @@ const applyOnlineAction = (
   return next === st ? null : next;
 };
 
-/** Face-down slots of both grids, minus the one this action itself reveals. */
-const missingAfter = (
-  state: GameState,
-  closing: OnlineAction
-): { seat: Seat; slot: number }[] => {
-  const out: { seat: Seat; slot: number }[] = [];
-  ([0, 1] as Seat[]).forEach((seat) => {
-    state.players[seat].grid.forEach((card, slot) => {
-      if (!card || card.faceUp) return;
-      if (
-        closing.seat === seat &&
-        closing.index === slot &&
-        (closing.type === "flip" || closing.type === "place")
-      ) {
-        return;
-      }
-      out.push({ seat, slot });
-    });
-  });
-  return out;
-};
+/** Did `next` score a round that `prev` had not? (endRound ran for real.) */
+const scoredRound = (next: GameState, prev: GameState): boolean =>
+  next.players.some(
+    (p, i) => p.roundScores.length > prev.players[i].roundScores.length
+  );
 
-/**
- * Would applying `a` end the round? Mirrors the engine's finishTurn logic
- * without running it (running it would score placeholder values).
- *
- * With two players a round only ever ends on the *non*-closer's turn: the
- * moment a player closes, the opponent gets exactly one final turn, and it is
- * that turn-ending move — with closedBy already set — that finishes the round.
- */
-const closesRound = (state: GameState, a: OnlineAction): boolean =>
-  (a.type === "place" || a.type === "flip") && state.closedBy !== null;
+/** Marks a seat out with no turn bookkeeping (used while a close is held). */
+const markOut = (state: GameState, seat: Seat): GameState => {
+  const players = state.players.slice();
+  players[seat] = { ...players[seat], out: true };
+  return { ...state, players };
+};
 
 export const replayRound = (
   prev: GameState | null,
@@ -212,38 +222,86 @@ export const replayRound = (
   input: RoundInput
 ): ReplayResult => {
   let state = initialRoundState(prev, cfg, input.round, input.discard0);
+  const final = input.final ?? {};
+
+  // Inject published final values eagerly. This only fixes placeholder values
+  // on still-face-down cards — it never flips anything, so it is invisible to
+  // gameplay until the engine's endRound reveal actually needs the values.
+  for (const [seatKey, values] of Object.entries(final)) {
+    const seat = parseSeat(seatKey);
+    if (seat === null || seat >= cfg.playerCount || !values) continue;
+    for (const [slot, value] of Object.entries(values)) {
+      state = setGridValue(state, seat, Number(slot), value as number);
+    }
+  }
+
+  /**
+   * Face-down slots (of players still in the game) whose values are neither
+   * published in `final` nor disclosed by the closing action itself.
+   */
+  const missingFor = (st: GameState, closing: OnlineAction) => {
+    const out: { seat: Seat; slot: number }[] = [];
+    st.players.forEach((p, seat) => {
+      if (p.out) return;
+      if (closing.type === "forfeit" && closing.seat === seat) return;
+      p.grid.forEach((card, slot) => {
+        if (!card || card.faceUp) return;
+        if (final[String(seat)]?.[slot] !== undefined) return;
+        if (
+          (closing.type === "flip" || closing.type === "place") &&
+          closing.seat === seat &&
+          closing.index === slot
+        ) {
+          return;
+        }
+        out.push({ seat, slot });
+      });
+    });
+    return out;
+  };
+
   let corrupted = false;
-  let awaitingReveal = false;
+  let pending: OnlineAction | null = null;
   let missing: { seat: Seat; slot: number }[] = [];
-  let applied = 0;
   let draws = 0;
 
   for (const a of input.actions) {
     if (a.type === "draw") draws += 1;
 
-    if (closesRound(state, a)) {
-      // Inject any published final values first, then check completeness.
-      const final = input.final ?? {};
-      ([0, 1] as Seat[]).forEach((seat) => {
-        const values = final[String(seat) as "0" | "1"];
-        if (!values) return;
-        for (const [slot, value] of Object.entries(values)) {
-          state = setGridValue(state, seat, Number(slot), value as number);
-        }
-      });
-      const known = new Set(
-        ([0, 1] as Seat[]).flatMap((seat) => {
-          const values = final[String(seat) as "0" | "1"] ?? {};
-          return Object.keys(values).map((slot) => `${seat}:${slot}`);
-        })
-      );
-      missing = missingAfter(state, a).filter(
-        ({ seat, slot }) => !known.has(`${seat}:${slot}`)
-      );
-      if (missing.length > 0) {
-        awaitingReveal = true;
-        break; // hold just before the closing action
+    if (pending) {
+      // A round-closing move is on hold. The database rules only accept
+      // forfeits in this window; each one excludes that player from scoring
+      // (and from the reveal requirement).
+      if (a.type !== "forfeit" || !state.players[a.seat] || state.players[a.seat].out) {
+        corrupted = true;
+        break;
       }
+      state = markOut(state, a.seat);
+      if (activeCount(state.players) <= 1) {
+        // Everyone else left while the reveal was pending: last one standing.
+        const winner = activeSeats(state.players)[0] ?? 0;
+        state = {
+          ...state,
+          held: null,
+          heldSource: null,
+          phase: "gameOver",
+          events: [...state.events, { type: "gameOver", winner }],
+        };
+        pending = null;
+        missing = [];
+        continue;
+      }
+      missing = missing.filter((m) => m.seat !== a.seat);
+      if (missing.length === 0) {
+        const next = applyOnlineAction(state, pending);
+        if (!next) {
+          corrupted = true;
+          break;
+        }
+        state = next;
+        pending = null;
+      }
+      continue;
     }
 
     const next = applyOnlineAction(state, a);
@@ -251,13 +309,21 @@ export const replayRound = (
       corrupted = true;
       break;
     }
+    if (scoredRound(next, state)) {
+      const need = missingFor(state, a);
+      if (need.length > 0) {
+        // Hold just before the closing action until the values arrive.
+        pending = a;
+        missing = need;
+        continue;
+      }
+    }
     state = next;
-    applied += 1;
   }
 
   return {
     state,
-    awaitingReveal,
+    awaitingReveal: pending !== null,
     missing,
     corrupted,
     actionCount: input.actions.length,
