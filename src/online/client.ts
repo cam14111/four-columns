@@ -27,6 +27,7 @@ import {
   DataSnapshot,
   get,
   onChildAdded,
+  onChildChanged,
   onChildRemoved,
   onDisconnect,
   onValue,
@@ -532,6 +533,21 @@ export class OnlineGame {
         (a) => {
           this.roundModel(rKey).actions.delete(a.key as string);
           this.recompute();
+        },
+        noop
+      ),
+      // When our optimistic (soon-denied) write overlays a key that a peer's
+      // accepted action already owns — or the rollback restores it — the SDK
+      // reports it as child_changed, not added/removed. Always trust the
+      // latest value so a phantom can never mask a real action.
+      onChildChanged(
+        ref(this.db, `${P.rounds(c)}/${rKey}/actions`),
+        (a) => {
+          const action = fromWireAction(a.val() as WireAction);
+          if (action) {
+            this.roundModel(rKey).actions.set(a.key as string, action);
+            this.recompute();
+          }
         },
         noop
       ),
