@@ -247,6 +247,13 @@ export const coachAdvice = (state: GameState): CoachAdvice | null => {
             index: null,
           };
         }
+        if (d.softDeny) {
+          return {
+            action: { type: "keep" },
+            text: `Gardez ce ${v} : il ne vous aide pas beaucoup, mais le défausser rendrait service à l'ordinateur.`,
+            index: null,
+          };
+        }
         const reason = placeReason(grid, v, d.place.index, ctx);
         const shed = reason.kind === "pair" ? shedNote(v, ctx) : "";
         return {
