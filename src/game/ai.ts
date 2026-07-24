@@ -474,14 +474,19 @@ export interface ExpertPlacement {
  * the replaced card offers the opponent on the discard, plus/minus the value
  * of closing the round when the slot is our last hidden card.
  */
-export const expertPlace = (
+/**
+ * Every legal placement of `value`, scored exactly as `expertPlace` scores the
+ * best one, sorted best-first. Exposed so the coach can name the runner-up and
+ * quote the margin between the top options.
+ */
+export const scorePlacements = (
   grid: Grid,
   value: number,
   ctx: ExpertCtx
-): ExpertPlacement => {
+): ExpertPlacement[] => {
   const base = potential(grid, ctx);
   const hidden = hiddenIndices(grid);
-  let best: ExpertPlacement = { index: -1, score: -Infinity };
+  const out: ExpertPlacement[] = [];
   for (let i = 0; i < grid.length; i++) {
     const replaced = grid[i];
     if (replaced === null) continue;
@@ -499,10 +504,20 @@ export const expertPlace = (
         score += closeAdjust(ourFinal, ctx.oppEst, CLOSE_MARGIN_KNOWN);
       }
     }
-    if (score > best.score) best = { index: i, score };
+    out.push({ index: i, score });
   }
-  return best;
+  // Stable sort keeps the lowest index first among equal scores — matching the
+  // original "strictly greater" scan, so the chosen slot is unchanged.
+  out.sort((a, b) => b.score - a.score);
+  return out;
 };
+
+export const expertPlace = (
+  grid: Grid,
+  value: number,
+  ctx: ExpertCtx
+): ExpertPlacement =>
+  scorePlacements(grid, value, ctx)[0] ?? { index: -1, score: -Infinity };
 
 export interface ExpertFlip {
   index: number;
