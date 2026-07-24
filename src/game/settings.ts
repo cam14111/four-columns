@@ -17,6 +17,8 @@ export interface Settings {
   onlinePlayers: number;
   sound: boolean;
   haptics: boolean;
+  /** Solo coach: suggest and explain the best move on each of your turns. */
+  hints: boolean;
 }
 
 export const SCORE_LIMITS = [50, 100, 150] as const;
@@ -33,6 +35,7 @@ export const DEFAULT_SETTINGS: Settings = {
   onlinePlayers: 2,
   sound: true,
   haptics: true,
+  hints: false,
 };
 
 export const loadSettings = (): Settings => {

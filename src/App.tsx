@@ -189,6 +189,8 @@ const AppInner = () => {
                 duoLayout: settings.duoLayout === "pass" ? "face" : "pass",
               })
             }
+            hintsEnabled={settings.hints}
+            onToggleHints={() => patchSettings({ hints: !settings.hints })}
             onOpenMenu={() => setPanel("menu")}
           />
           <Overlays
