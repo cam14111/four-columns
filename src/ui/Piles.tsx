@@ -11,6 +11,8 @@ interface PilesProps {
   onTakeDiscard: () => void;
   /** Compact variant for the face-to-face centre table. */
   size?: "sm" | "md";
+  /** Pile the solo coach recommends drawing from (soft steady ring). */
+  hint?: "deck" | "discard" | null;
 }
 
 // Card footprints per size, used for the stacked-deck look and the empty slot.
@@ -27,6 +29,7 @@ export const Piles = ({
   onDrawDeck,
   onTakeDiscard,
   size = "md",
+  hint = null,
 }: PilesProps) => {
   const { w, h } = DIMS[size];
   return (
@@ -46,7 +49,8 @@ export const Piles = ({
             "relative rounded-xl transition-transform",
             canDraw
               ? "cursor-pointer hover:-translate-y-0.5 animate-pulse-ring"
-              : "opacity-60 cursor-default"
+              : "opacity-60 cursor-default",
+            hint === "deck" && canDraw && "ring-2 ring-sky-300/90"
           )}
         >
           {/* stacked look */}
@@ -78,7 +82,8 @@ export const Piles = ({
             "rounded-xl transition-transform",
             canTakeDiscard
               ? "cursor-pointer hover:-translate-y-0.5 animate-pulse-ring"
-              : "cursor-default"
+              : "cursor-default",
+            hint === "discard" && canTakeDiscard && "ring-2 ring-sky-300/90"
           )}
         >
           {discardTop ? (

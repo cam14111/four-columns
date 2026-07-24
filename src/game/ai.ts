@@ -40,7 +40,7 @@ export interface AiOptions {
 // Shared helpers (all levels)
 // ---------------------------------------------------------------------------
 
-const hiddenIndices = (grid: Grid): number[] => {
+export const hiddenIndices = (grid: Grid): number[] => {
   const out: number[] = [];
   grid.forEach((c, i) => {
     if (c && !c.faceUp) out.push(i);
@@ -59,7 +59,7 @@ const estScore = (grid: Grid, mu: number = DECK_MEAN): number =>
   }, 0);
 
 /** Simulate placing `value` (face-up) at `index`, clearing the column if done. */
-const gridAfterPlace = (grid: Grid, value: number, index: number): Grid => {
+export const gridAfterPlace = (grid: Grid, value: number, index: number): Grid => {
   const next = grid.slice();
   next[index] = { id: "sim", value: value as Card["value"], faceUp: true };
   const idxs = columnIndices(index % COLS);
@@ -309,7 +309,7 @@ const normalAction = (
 // ---------------------------------------------------------------------------
 
 /** Weight of "what does my discard hand to the opponent" in expert scoring. */
-const OPP_RISK_WEIGHT = 0.45;
+export const OPP_RISK_WEIGHT = 0.45;
 /** Damping on column-completion potential (a pair is a chance, not a lock). */
 const PAIR_WEIGHT = 0.8;
 /** Opponents improve a little on the mandatory final turn after we close. */
@@ -318,7 +318,7 @@ const FINAL_TURN_EDGE = 1.5;
 const CLOSE_MARGIN_KNOWN = 2; // final score exactly known when closing
 const CLOSE_MARGIN_BLIND = 4; // closing by flipping an unknown card
 
-interface ExpertCtx {
+export interface ExpertCtx {
   /** Remaining unseen copies per card value (index = value + 2). */
   counts: number[];
   /** Total unseen cards. */
@@ -398,7 +398,7 @@ const buildExpertCtx = (state: GameState, me: number): ExpertCtx => {
 };
 
 /** How much the best opponent could gain if `value` sat on the discard top. */
-const oppUse = (value: number, ctx: ExpertCtx): number => {
+export const oppUse = (value: number, ctx: ExpertCtx): number => {
   let worst = 0;
   for (const g of ctx.oppGrids) {
     const gain = bestPlacement(g, value, ctx.mu).gain;
@@ -464,7 +464,7 @@ const closeAdjust = (
   return lockBonus - pLose * ourFinal;
 };
 
-interface ExpertPlacement {
+export interface ExpertPlacement {
   index: number;
   score: number;
 }
@@ -474,7 +474,7 @@ interface ExpertPlacement {
  * the replaced card offers the opponent on the discard, plus/minus the value
  * of closing the round when the slot is our last hidden card.
  */
-const expertPlace = (
+export const expertPlace = (
   grid: Grid,
   value: number,
   ctx: ExpertCtx
@@ -504,7 +504,7 @@ const expertPlace = (
   return best;
 };
 
-interface ExpertFlip {
+export interface ExpertFlip {
   index: number;
   ev: number;
 }
@@ -514,7 +514,7 @@ interface ExpertFlip {
  * simply becomes a real value), so its worth is the chance of completing a
  * face-up pair — plus the closing stakes when it is our last hidden card.
  */
-const expertFlip = (grid: Grid, ctx: ExpertCtx): ExpertFlip | null => {
+export const expertFlip = (grid: Grid, ctx: ExpertCtx): ExpertFlip | null => {
   const hidden = hiddenIndices(grid);
   if (hidden.length === 0) return null;
   const closes = hidden.length === 1 && !ctx.finalTurn;
@@ -551,7 +551,7 @@ const expertFlip = (grid: Grid, ctx: ExpertCtx): ExpertFlip | null => {
 };
 
 /** Expert's opening reveals: spread over distinct columns and rows. */
-const expertSetup = (grid: Grid): number => {
+export const expertSetup = (grid: Grid): number => {
   const hidden = hiddenIndices(grid);
   let best = hidden[0];
   let bestScore = Infinity;
@@ -570,6 +570,65 @@ const expertSetup = (grid: Grid): number => {
   return best;
 };
 
+/** Structured outcome of the expert's draw decision (shared with the coach). */
+export interface ExpertDraw {
+  /** True when the discard top should be taken. */
+  take: boolean;
+  /** Evaluation of taking the discard top (null when the discard is empty). */
+  takeEval: ExpertPlacement | null;
+  /** Expected score of gambling on the deck instead. */
+  deckEV: number;
+}
+
+export const expertDraw = (state: GameState, me: number): ExpertDraw => {
+  const grid = state.players[me].grid;
+  const ctx = buildExpertCtx(state, me);
+  const top = state.discard[0];
+  const takeEval = top ? expertPlace(grid, top.value, ctx) : null;
+
+  // Expected value of the deck: for every unseen value, the best of placing
+  // it or discarding it to flip, weighted by its probability.
+  const flip = expertFlip(grid, ctx);
+  let deckEV = 0;
+  if (ctx.total > 0) {
+    for (const v of ALL_CARD_VALUES) {
+      const n = ctx.counts[v + 2];
+      if (n === 0) continue;
+      const place = expertPlace(grid, v, ctx).score;
+      const toss =
+        flip === null
+          ? -Infinity
+          : flip.ev - (ctx.finalTurn ? 0 : OPP_RISK_WEIGHT * oppUse(v, ctx));
+      deckEV += (n / ctx.total) * Math.max(place, toss);
+    }
+  }
+  // A known-good discard beats an equal gamble on the deck.
+  return { take: takeEval !== null && takeEval.score >= deckEV, takeEval, deckEV };
+};
+
+/** Structured outcome of the expert's keep/discard decision. */
+export interface ExpertDecide {
+  keep: boolean;
+  place: ExpertPlacement;
+  flip: ExpertFlip | null;
+  /** Keeping only won because discarding would arm the opponent. */
+  denial: boolean;
+}
+
+export const expertDecide = (state: GameState, me: number): ExpertDecide => {
+  const grid = state.players[me].grid;
+  const ctx = buildExpertCtx(state, me);
+  const held = state.held!;
+  const place = expertPlace(grid, held.value, ctx);
+  const flip = expertFlip(grid, ctx);
+  if (flip === null || place.index === -1) {
+    return { keep: flip === null, place, flip, denial: false };
+  }
+  const risk = ctx.finalTurn ? 0 : OPP_RISK_WEIGHT * oppUse(held.value, ctx);
+  const keep = place.score >= flip.ev - risk;
+  return { keep, place, flip, denial: keep && flip.ev > place.score };
+};
+
 const expertAction = (state: GameState, me: number): GameAction | null => {
   const grid = state.players[me].grid;
 
@@ -580,44 +639,13 @@ const expertAction = (state: GameState, me: number): GameAction | null => {
     }
 
     case "draw": {
-      const ctx = buildExpertCtx(state, me);
-      const top = state.discard[0];
-      const takeScore = top ? expertPlace(grid, top.value, ctx).score : -Infinity;
-
-      // Expected value of the deck: for every unseen value, the best of
-      // placing it or discarding it to flip, weighted by its probability.
-      const flip = expertFlip(grid, ctx);
-      let deckEV = 0;
-      if (ctx.total > 0) {
-        for (const v of ALL_CARD_VALUES) {
-          const n = ctx.counts[v + 2];
-          if (n === 0) continue;
-          const place = expertPlace(grid, v, ctx).score;
-          const toss =
-            flip === null
-              ? -Infinity
-              : flip.ev -
-                (ctx.finalTurn ? 0 : OPP_RISK_WEIGHT * oppUse(v, ctx));
-          deckEV += (n / ctx.total) * Math.max(place, toss);
-        }
-      }
-      // A known-good discard beats an equal gamble on the deck.
-      if (top && takeScore >= deckEV) return { type: "takeFromDiscard" };
-      return { type: "drawFromDeck" };
+      const d = expertDraw(state, me);
+      return d.take ? { type: "takeFromDiscard" } : { type: "drawFromDeck" };
     }
 
     case "decide": {
-      const ctx = buildExpertCtx(state, me);
-      const held = state.held!;
-      const place = expertPlace(grid, held.value, ctx);
-      const flip = expertFlip(grid, ctx);
-      if (flip === null || place.index === -1) {
-        return flip === null ? { type: "keep" } : { type: "discardDrawn" };
-      }
-      const toss =
-        flip.ev -
-        (ctx.finalTurn ? 0 : OPP_RISK_WEIGHT * oppUse(held.value, ctx));
-      return place.score >= toss ? { type: "keep" } : { type: "discardDrawn" };
+      const d = expertDecide(state, me);
+      return d.keep ? { type: "keep" } : { type: "discardDrawn" };
     }
 
     case "replace": {

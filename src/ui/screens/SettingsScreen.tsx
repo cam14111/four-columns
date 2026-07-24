@@ -82,6 +82,13 @@ export const SettingsScreen = ({ settings, onChange }: SettingsScreenProps) => (
       </div>
     </Row>
 
+    <Row label="Aide au jeu" hint="Le coach suggère et explique le meilleur coup (solo)">
+      <Switch
+        checked={settings.hints}
+        onCheckedChange={(v) => onChange({ hints: v })}
+      />
+    </Row>
+
     <Row label="Sons" hint="Effets sonores synthétisés">
       <Switch
         checked={settings.sound}

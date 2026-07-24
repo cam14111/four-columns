@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { FlipVertical2, Menu, UserX } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FlipVertical2, Lightbulb, Menu, UserX } from "lucide-react";
 import { DuoLayout, GameState, PlayerState } from "@/game/types";
 import { GameAction } from "@/game/types";
 import type { OnlinePlayerMeta } from "@/online/client";
 import { visibleScore } from "@/game/engine";
+import { coachAdvice } from "@/game/coach";
 import { DIFFICULTY_LABEL, GRID_DIMS } from "./theme";
 import { Grid, PlayerBadge } from "./Grid";
 import { Piles } from "./Piles";
@@ -330,6 +331,9 @@ interface GameScreenProps {
   duoLayout: DuoLayout;
   /** Flip between the two duo layouts (pass-the-phone ↔ face-to-face). */
   onToggleLayout: () => void;
+  /** Solo coach: show and explain the recommended move each turn. */
+  hintsEnabled: boolean;
+  onToggleHints: () => void;
   /** Present when this board renders an online duel. */
   online?: OnlineViewProps;
 }
@@ -341,6 +345,8 @@ export const GameScreen = ({
   onOpenMenu,
   duoLayout,
   onToggleLayout,
+  hintsEnabled,
+  onToggleHints,
   online,
 }: GameScreenProps) => {
   const duo = game.mode === "duo";
@@ -355,6 +361,17 @@ export const GameScreen = ({
   const { viewIndex, stage, revealSeq, dismiss } = usePassHandoff(
     game,
     passEnabled
+  );
+
+  // Solo coach: the expert evaluation run for the human, refreshed on every
+  // decision point. Null whenever there is nothing to advise (AI's turn,
+  // non-solo game, hints off) so the banner simply disappears.
+  const advice = useMemo(
+    () =>
+      hintsEnabled && game.mode === "solo" && !aiThinking
+        ? coachAdvice(game)
+        : null,
+    [hintsEnabled, game, aiThinking]
   );
 
   // Online: inputs are locked while my link is down, while a move is being
@@ -481,6 +498,25 @@ export const GameScreen = ({
           </span>
         </div>
         <div className="flex items-center gap-2">
+          {!duo && !isOnline && (
+            <button
+              type="button"
+              onClick={onToggleHints}
+              aria-pressed={hintsEnabled}
+              aria-label={
+                hintsEnabled ? "Désactiver l'aide" : "Activer l'aide"
+              }
+              className={cn(
+                "flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold transition-colors",
+                hintsEnabled
+                  ? "bg-sky-400/25 text-sky-100 ring-1 ring-sky-300/40"
+                  : "bg-white/10 text-white/80 hover:bg-white/20"
+              )}
+            >
+              <Lightbulb size={14} />
+              Aide
+            </button>
+          )}
           {duo && (
             <button
               type="button"
@@ -613,6 +649,13 @@ export const GameScreen = ({
             }
             onDrawDeck={() => dispatch({ type: "drawFromDeck" })}
             onTakeDiscard={() => dispatch({ type: "takeFromDiscard" })}
+            hint={
+              advice?.action.type === "drawFromDeck"
+                ? "deck"
+                : advice?.action.type === "takeFromDiscard"
+                  ? "discard"
+                  : null
+            }
           />
 
           <div
@@ -629,6 +672,18 @@ export const GameScreen = ({
           >
             {lingerText ?? prompt}
           </div>
+
+          {/* Solo coach: the recommended move, explained in one sentence. */}
+          {advice && (
+            <div
+              key={advice.text}
+              role="note"
+              className="animate-pop mx-2 flex max-w-md items-start gap-2 rounded-xl bg-sky-400/10 px-3 py-2 text-left text-xs leading-snug text-sky-100 ring-1 ring-sky-300/30"
+            >
+              <Lightbulb size={14} className="mt-0.5 shrink-0 text-sky-300" />
+              <span>{advice.text}</span>
+            </div>
+          )}
 
           {/* Show what the opponent (AI or remote player) drew while they
               decide/place — watching their pick is half the drama. */}
@@ -669,6 +724,7 @@ export const GameScreen = ({
               dealKey={game.round}
               highlightIndex={highlightFor(bottomIndex)}
               highlightSeq={lastMove?.seq}
+              hintIndex={advice?.index ?? null}
             />
           </ScaledBox>
           <PlayerBadge
@@ -689,13 +745,21 @@ export const GameScreen = ({
           <div className="flex flex-col gap-2">
             <Button
               onClick={() => dispatch({ type: "keep" })}
-              className="bg-emerald-500 hover:bg-emerald-600 text-white"
+              className={cn(
+                "bg-emerald-500 hover:bg-emerald-600 text-white",
+                advice?.action.type === "keep" &&
+                  "ring-2 ring-sky-300 ring-offset-2 ring-offset-slate-950"
+              )}
             >
               Garder & remplacer
             </Button>
             <Button
               variant="secondary"
               onClick={() => dispatch({ type: "discardDrawn" })}
+              className={cn(
+                advice?.action.type === "discardDrawn" &&
+                  "ring-2 ring-sky-300 ring-offset-2 ring-offset-slate-950"
+              )}
             >
               Défausser & retourner
             </Button>

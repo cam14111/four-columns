@@ -251,6 +251,8 @@ export const OnlineMode = ({
         dispatch={online.dispatch}
         duoLayout="pass"
         onToggleLayout={() => {}}
+        hintsEnabled={false}
+        onToggleHints={() => {}}
         onOpenMenu={() => setPanel("menu")}
         online={{
           mySeat: snap.mySeat,
