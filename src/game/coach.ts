@@ -151,7 +151,10 @@ const runnerUpNote = (
   if (ranked.length < 2 || ranked[0].index !== chosen) return "";
   const margin = ranked[0].score - ranked[1].score;
   if (margin < 0.6) {
-    return ` La ${colName(ranked[1].index)} serait presque équivalente.`;
+    // Same column: "colonne N would be equivalent" would read absurd.
+    return ranked[1].index % COLS === chosen % COLS
+      ? ` Une autre case de la ${colName(chosen)} ferait aussi bien.`
+      : ` La ${colName(ranked[1].index)} serait presque équivalente.`;
   }
   if (margin > 6) return " C'est nettement le meilleur emplacement.";
   return "";
