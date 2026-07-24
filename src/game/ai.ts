@@ -407,6 +407,27 @@ export const oppUse = (value: number, ctx: ExpertCtx): number => {
   return worst;
 };
 
+/** True when an opponent shows a face-up copy of `value` (public info). */
+export const opponentShows = (value: number, ctx: ExpertCtx): boolean =>
+  ctx.oppGrids.some((g) =>
+    g.some((c) => c !== null && c.faceUp && c.value === value)
+  );
+
+/**
+ * Known Skyjo wisdom: a high-value column is more completable than the raw draw
+ * odds imply. Strong cards (5+) are discarded far more often than kept, and a
+ * value an opponent is sitting on face-up is very likely to be shed to us on
+ * their next turn. This returns the *extra* per-turn chance of the matching
+ * card becoming takeable — purely from public information (the value's
+ * magnitude and opponents' face-up cards), never from hidden cards.
+ */
+export const shedChance = (value: number, ctx: ExpertCtx): number => {
+  if (value < 5) return 0; // low cards are kept, hardly ever discarded
+  let c = ((value - 4) / 8) * 0.015; // small always-on nudge for high cards
+  if (opponentShows(value, ctx)) c += 0.08; // the dominant, situational signal
+  return Math.min(c, 0.095);
+};
+
 /**
  * Expert's grid evaluation: estimated score minus the expected payoff of
  * near-complete columns. A face-up pair of value v with a third slot to fill
@@ -439,13 +460,20 @@ const potential = (grid: Grid, ctx: ExpertCtx): number => {
       if (pairValue === null) continue;
       const removal = 2 * pairValue + third;
       if (removal <= 0) continue;
-      const p = ctx.counts[pairValue + 2] / ctx.total;
-      const pComplete = 1 - Math.pow(1 - p, ctx.horizon);
+      // Per-turn chance of the third card: drawing it from the pool, plus the
+      // extra odds that a high value reaches the discard (see `shedChance`).
+      // This makes the expert willing to start/keep a high column — especially
+      // when an opponent is showing that value and is about to shed it.
+      const pDraw = ctx.counts[pairValue + 2] / ctx.total;
+      const shed = shedChance(pairValue, ctx);
+      const pTurn = pDraw + shed - pDraw * shed;
+      const pComplete = 1 - Math.pow(1 - pTurn, ctx.horizon);
       bonus += PAIR_WEIGHT * pComplete * removal;
     }
   }
   return estScore(grid, ctx.mu) - bonus;
 };
+
 
 /**
  * Closing-value adjustment: locking a winning round in is worth a little,

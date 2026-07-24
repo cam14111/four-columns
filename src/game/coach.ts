@@ -8,6 +8,7 @@ import {
   expertSetup,
   gridAfterPlace,
   hiddenIndices,
+  opponentShows,
   scorePlacements,
   type ExpertCtx,
 } from "./ai";
@@ -136,6 +137,16 @@ const runnerUpNote = (
   return "";
 };
 
+/**
+ * The classic Skyjo tip behind grabbing a strong card: when the pick builds a
+ * high column and the opponent is showing that very value, they will likely
+ * shed a copy soon — say so, it is the whole point of the move.
+ */
+const shedNote = (value: number, ctx: ExpertCtx): string =>
+  value >= 5 && opponentShows(value, ctx)
+    ? ` L'ordinateur montre un ${value} : il finira sans doute par le défausser, la colonne est très jouable.`
+    : "";
+
 /** Face-up pair (two equal cards) around a hidden slot, if any. */
 const pairAround = (grid: Grid, index: number): number | null => {
   const others = columnIndices(index % COLS)
@@ -177,14 +188,18 @@ export const coachAdvice = (state: GameState): CoachAdvice | null => {
       const top = state.discard[0];
       if (d.take && top && d.takeEval) {
         const reason = placeReason(grid, top.value, d.takeEval.index, ctx);
+        // The shed insight explains *why* a strong card is worth grabbing;
+        // when it applies it replaces the generic take-vs-draw comparison.
+        const shed = reason.kind === "pair" ? shedNote(top.value, ctx) : "";
         const edge = d.takeEval.score - d.deckEV;
-        const cmp =
-          edge > 3
+        const cmp = shed
+          ? ""
+          : edge > 3
             ? " Nettement mieux que tenter la pioche."
             : " Un peu plus sûr que de piocher à l'aveugle.";
         return {
           action: { type: "takeFromDiscard" },
-          text: `Prenez le ${top.value} de la défausse : ${placeTail(reason, top.value, d.takeEval.index, ctx)}${cmp}`,
+          text: `Prenez le ${top.value} de la défausse : ${placeTail(reason, top.value, d.takeEval.index, ctx)}${shed}${cmp}`,
           index: null,
         };
       }
@@ -210,9 +225,10 @@ export const coachAdvice = (state: GameState): CoachAdvice | null => {
           };
         }
         const reason = placeReason(grid, v, d.place.index, ctx);
+        const shed = reason.kind === "pair" ? shedNote(v, ctx) : "";
         return {
           action: { type: "keep" },
-          text: `Gardez ce ${v} : ${placeTail(reason, v, d.place.index, ctx)}`,
+          text: `Gardez ce ${v} : ${placeTail(reason, v, d.place.index, ctx)}${shed}`,
           index: null,
         };
       }

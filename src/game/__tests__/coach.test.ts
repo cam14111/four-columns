@@ -136,6 +136,36 @@ describe("coach — explanations", () => {
     expect(advice?.text.toLowerCase()).toContain("ferme");
   });
 
+  it("starts a high column when the opponent is showing that value", () => {
+    // Early game: our column 0 shows a lone 12 over two hidden slots, and a 12
+    // sits on the discard. When the opponent is showing 12s (they will likely
+    // shed one soon), grabbing the strong card to build the column is worth
+    // it — the classic web-strategy tip the coach now applies.
+    const humanGrid = gridFrom([12, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    for (let i = 2; i < 12; i++) humanGrid[i] = card(humanGrid[i].value, false);
+    const shownTwelves = gridFrom([12, 5, 6, 0, 12, 0, 0, 0, 0, 0, 0, 0]);
+    for (let i = 5; i < 12; i++)
+      shownTwelves[i] = card(shownTwelves[i].value, false);
+
+    const withShow = humanPosition(humanGrid, shownTwelves, {
+      discard: [card(12)],
+    });
+    const adviceShow = coachAdvice(withShow);
+    expect(adviceShow?.action).toEqual({ type: "takeFromDiscard" });
+    expect(adviceShow?.text.toLowerCase()).toContain("colonne");
+    // ...and the explanation teaches the read on the opponent's discards.
+    expect(adviceShow?.text.toLowerCase()).toContain("défausser");
+
+    // Same board, but the opponent shows no 12: the shed signal is gone, so
+    // the coach no longer grabs the high card — it draws instead.
+    const noTwelve = gridFrom([4, 5, 6, 0, 3, 0, 0, 0, 0, 0, 0, 0]);
+    for (let i = 5; i < 12; i++) noTwelve[i] = card(noTwelve[i].value, false);
+    const withoutShow = humanPosition(humanGrid, noTwelve, {
+      discard: [card(12)],
+    });
+    expect(coachAdvice(withoutShow)?.action).toEqual({ type: "drawFromDeck" });
+  });
+
   it("gives the same (expert) advice whatever the difficulty setting", () => {
     const humanGrid = gridFrom([9, 3, 4, 5, 9, 6, 2, 1, 8, 0, 7, 8]);
     humanGrid[8] = card(8, false);
