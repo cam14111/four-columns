@@ -8,6 +8,7 @@ import {
   expertSetup,
   gridAfterPlace,
   hiddenIndices,
+  scorePlacements,
   type ExpertCtx,
 } from "./ai";
 import { columnIndices, countFaceUp } from "./engine";
@@ -114,6 +115,27 @@ const avoidCloseNote = (
   return " Évitez votre dernière carte cachée : fermer maintenant risquerait de doubler votre score.";
 };
 
+/**
+ * The coach compares every legal slot; when the second-best is nearly as good
+ * it says so (a genuine choice), and when the pick is clearly ahead it flags
+ * that too — so the advice reads as an analysis of the options, not a decree.
+ */
+const runnerUpNote = (
+  grid: Grid,
+  value: number,
+  chosen: number,
+  ctx: ExpertCtx
+): string => {
+  const ranked = scorePlacements(grid, value, ctx);
+  if (ranked.length < 2 || ranked[0].index !== chosen) return "";
+  const margin = ranked[0].score - ranked[1].score;
+  if (margin < 0.6) {
+    return ` La ${colName(ranked[1].index)} serait presque équivalente.`;
+  }
+  if (margin > 6) return " C'est nettement le meilleur emplacement.";
+  return "";
+};
+
 /** Face-up pair (two equal cards) around a hidden slot, if any. */
 const pairAround = (grid: Grid, index: number): number | null => {
   const others = columnIndices(index % COLS)
@@ -155,9 +177,14 @@ export const coachAdvice = (state: GameState): CoachAdvice | null => {
       const top = state.discard[0];
       if (d.take && top && d.takeEval) {
         const reason = placeReason(grid, top.value, d.takeEval.index, ctx);
+        const edge = d.takeEval.score - d.deckEV;
+        const cmp =
+          edge > 3
+            ? " Nettement mieux que tenter la pioche."
+            : " Un peu plus sûr que de piocher à l'aveugle.";
         return {
           action: { type: "takeFromDiscard" },
-          text: `Prenez le ${top.value} de la défausse : ${placeTail(reason, top.value, d.takeEval.index, ctx)}`,
+          text: `Prenez le ${top.value} de la défausse : ${placeTail(reason, top.value, d.takeEval.index, ctx)}${cmp}`,
           index: null,
         };
       }
@@ -212,12 +239,15 @@ export const coachAdvice = (state: GameState): CoachAdvice | null => {
         reason.kind === "swap" || reason.kind === "dig"
           ? `En ${colName(place.index)} : `
           : "";
+      const close = avoidCloseNote(grid, v, place.index, ctx);
       return {
         action: { type: "placeAt", index: place.index },
         text:
           lead +
           placeTail(reason, v, place.index, ctx) +
-          avoidCloseNote(grid, v, place.index, ctx),
+          // Only add the option-comparison when we are not already spending the
+          // sentence on the more important closing warning.
+          (close || runnerUpNote(grid, v, place.index, ctx)),
         index: place.index,
       };
     }

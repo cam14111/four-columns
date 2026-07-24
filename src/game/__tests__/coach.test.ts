@@ -63,6 +63,8 @@ describe("coach — explanations", () => {
     expect(advice?.action).toEqual({ type: "takeFromDiscard" });
     expect(advice?.text).toContain("défausse");
     expect(advice?.text).toContain("colonne 1");
+    // The advice weighs the alternative (drawing) rather than just decreeing.
+    expect(advice?.text).toContain("pioch");
   });
 
   it("points at the completing slot when placing, with the points saved", () => {
@@ -80,6 +82,8 @@ describe("coach — explanations", () => {
     expect(advice?.action).toEqual({ type: "placeAt", index: 8 });
     expect(advice?.index).toBe(8);
     expect(advice?.text).toContain("27");
+    // Having compared every slot, the coach flags this one as clearly best.
+    expect(advice?.text).toContain("meilleur emplacement");
   });
 
   it("explains keeping a card that would arm the opponent", () => {
