@@ -464,6 +464,23 @@ export const opponentShows = (value: number, ctx: ExpertCtx): boolean =>
   );
 
 /**
+ * True when an opponent has a face-up pair of `value` in one column — i.e. a
+ * discarded `value` would genuinely let them complete and clear that column.
+ */
+export const opponentPairOf = (value: number, ctx: ExpertCtx): boolean =>
+  ctx.oppGrids.some((g) => {
+    for (let col = 0; col < COLS; col++) {
+      const cards = columnIndices(col).map((i) => g[i]);
+      if (cards.some((c) => c === null)) continue;
+      const same = cards.filter(
+        (c) => c !== null && c.faceUp && c.value === value
+      ).length;
+      if (same === 2) return true;
+    }
+    return false;
+  });
+
+/**
  * Known Skyjo wisdom: a high-value column is more completable than the raw draw
  * odds imply. Strong cards (5+) are discarded far more often than kept, and a
  * value an opponent is sitting on face-up is very likely to be shed to us on
@@ -771,8 +788,10 @@ export interface ExpertDecide {
   keep: boolean;
   place: ExpertPlacement;
   flip: ExpertFlip | null;
-  /** Keeping only won because discarding would arm the opponent. */
+  /** Kept to stop an opponent *completing a column* (they show a matching pair). */
   denial: boolean;
+  /** Kept mainly to avoid handing the opponent a useful card (no column). */
+  softDeny: boolean;
 }
 
 export const expertDecide = (state: GameState, me: number): ExpertDecide => {
@@ -782,11 +801,19 @@ export const expertDecide = (state: GameState, me: number): ExpertDecide => {
   const place = expertPlace(grid, held.value, ctx);
   const flip = expertFlip(grid, ctx);
   if (flip === null || place.index === -1) {
-    return { keep: flip === null, place, flip, denial: false };
+    return { keep: flip === null, place, flip, denial: false, softDeny: false };
   }
   const risk = ctx.finalTurn ? 0 : OPP_RISK_WEIGHT * oppUse(held.value, ctx);
   const keep = place.score >= flip.ev - risk;
-  return { keep, place, flip, denial: keep && flip.ev > place.score };
+  // The opponent risk is what tipped us into keeping (our own board would
+  // rather flip). Only then is a "defensive keep" the real story.
+  const defensive = keep && flip.ev > place.score && !ctx.finalTurn;
+  // Strong story — they show a face-up pair, so discarding truly lets them
+  // complete a column. Claiming that without a real pair reads as a bug.
+  const denial = defensive && opponentPairOf(held.value, ctx);
+  // Softer story — no column, but the card would still help them a little.
+  const softDeny = defensive && !denial && oppUse(held.value, ctx) >= 1;
+  return { keep, place, flip, denial, softDeny };
 };
 
 const expertAction = (state: GameState, me: number): GameAction | null => {

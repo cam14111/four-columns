@@ -100,7 +100,30 @@ describe("coach — explanations", () => {
     });
     const advice = coachAdvice(s);
     expect(advice?.action).toEqual({ type: "keep" });
-    expect(advice?.text).toContain("ordinateur");
+    // Real face-up pair of 7s -> the strong "complete a column" story is honest.
+    expect(advice?.text).toContain("compléter une colonne");
+  });
+
+  it("never claims a phantom column when the opponent has no matching pair", () => {
+    // Reproduces the reported screenshot: we hold a 9 that barely helps us, and
+    // discarding it would let the opponent gain a point — but they show NO pair
+    // of 9s, so the advice must not claim it "completes a column".
+    const mine = gridFrom([2, 10, -2, 5, 5, 10, 5, 5, 5, 9, 0, 5]);
+    for (const i of [3, 4, 6, 7, 8, 11]) mine[i] = card(mine[i].value, false);
+    const oppNoPair = gridFrom([5, -1, 10, 7, -1, 0, 5, 5, 5, 5, 5, 5]);
+    for (let i = 6; i < 12; i++) oppNoPair[i] = card(oppNoPair[i].value, false);
+
+    const s = humanPosition(mine, oppNoPair, {
+      phase: "decide",
+      held: card(9),
+      heldSource: "deck",
+    });
+    const advice = coachAdvice(s);
+    expect(advice?.text).not.toContain("compléter une colonne");
+    // If it recommends keeping, the reason is an honest soft-denial, not a lie.
+    if (advice?.action.type === "keep") {
+      expect(advice?.text).toContain("rendrait service à l'ordinateur");
+    }
   });
 
   it("warns against closing the round from behind", () => {
