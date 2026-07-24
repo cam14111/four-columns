@@ -312,11 +312,25 @@ const normalAction = (
 export const OPP_RISK_WEIGHT = 0.45;
 /** Damping on column-completion potential (a pair is a chance, not a lock). */
 const PAIR_WEIGHT = 0.8;
-/** Opponents improve a little on the mandatory final turn after we close. */
-const FINAL_TURN_EDGE = 1.5;
 /** Safety margins (points) before choosing to close, per information level. */
-const CLOSE_MARGIN_KNOWN = 2; // final score exactly known when closing
+export const CLOSE_MARGIN_KNOWN = 2; // final score exactly known when closing
 const CLOSE_MARGIN_BLIND = 4; // closing by flipping an unknown card
+
+/** Match-level view: how this round projects onto the whole game's totals. */
+export interface GameOutlook {
+  /** Our cumulative score before this round. */
+  myTotal: number;
+  /** The rival's (best-projected opponent's) cumulative score. */
+  oppTotal: number;
+  /** That rival's estimated score for the current round. */
+  oppRoundEst: number;
+  /** Score at which the game ends. */
+  limit: number;
+  /** 0..1 — how dangerously close *we* are to the limit. */
+  pressureMe: number;
+  /** 0..1 — how close the rival is to the limit (ending rounds helps us). */
+  pressureOpp: number;
+}
 
 export interface ExpertCtx {
   /** Remaining unseen copies per card value (index = value + 2). */
@@ -330,10 +344,16 @@ export interface ExpertCtx {
   /** An opponent closed the round: this is our last turn, pure minimization. */
   finalTurn: boolean;
   oppGrids: Grid[];
-  /** Best (lowest) estimated opponent final score. */
+  /** Best (lowest) estimated opponent final score for this round. */
   oppEst: number;
   /** Expected usefulness to opponents of a random unseen card. */
   eOppUse: number;
+  /** Our own estimated final score for this round. */
+  myEst: number;
+  /** Our face-down cards left (tempo: how far we are from closing). */
+  myHidden: number;
+  /** The whole-game projection driving endgame and risk-posture choices. */
+  game: GameOutlook;
 }
 
 /**
@@ -363,18 +383,45 @@ const buildExpertCtx = (state: GameState, me: number): ExpertCtx => {
   const mu = total > 0 ? sum / total : DECK_MEAN;
 
   const finalTurn = state.closedBy !== null;
-  const oppGrids = state.players
-    .filter((p, i) => i !== me && isActive(p))
-    .map((p) => p.grid);
+  const opps = state.players.filter((p, i) => i !== me && isActive(p));
+  const oppGrids = opps.map((p) => p.grid);
 
+  const myHidden = hiddenIndices(state.players[me].grid).length;
+  const myEst = visibleScore(state.players[me].grid) + myHidden * mu;
+
+  // Per-opponent round estimate. Their edge on the mandatory final turn after
+  // we close is not a constant: it scales with what they can actually fix —
+  // their worst face-up card (a visible 12 is a big correction in waiting).
   let oppEst = Infinity;
-  let minHidden = hiddenIndices(state.players[me].grid).length;
-  for (const g of oppGrids) {
-    const h = hiddenIndices(g).length;
+  let minHidden = myHidden;
+  let rival: { total: number; est: number } | null = null;
+  for (const p of opps) {
+    const h = hiddenIndices(p.grid).length;
     minHidden = Math.min(minHidden, h);
-    oppEst = Math.min(oppEst, visibleScore(g) + h * mu - FINAL_TURN_EDGE);
+    const ups = p.grid.filter((c): c is Card => c !== null && c.faceUp);
+    const worst = ups.length ? Math.max(...ups.map((c) => c.value)) : mu;
+    const edge = Math.max(1, Math.min(3.5, 0.5 * (worst - mu)));
+    const est = visibleScore(p.grid) + h * mu - edge;
+    oppEst = Math.min(oppEst, est);
+    // The rival is the opponent best placed to win the whole game.
+    if (rival === null || p.totalScore + est < rival.total + rival.est) {
+      rival = { total: p.totalScore, est };
+    }
   }
   const horizon = finalTurn ? 0 : Math.max(1, Math.min(5, minHidden));
+
+  const limit = state.scoreLimit;
+  const myTotal = state.players[me].totalScore;
+  const pressure = (t: number): number =>
+    Math.max(0, Math.min(1, 1 - (limit - t) / 25));
+  const game: GameOutlook = {
+    myTotal,
+    oppTotal: rival?.total ?? 0,
+    oppRoundEst: rival?.est ?? 0,
+    limit,
+    pressureMe: pressure(myTotal),
+    pressureOpp: pressure(rival?.total ?? 0),
+  };
 
   const ctx: ExpertCtx = {
     counts,
@@ -385,6 +432,9 @@ const buildExpertCtx = (state: GameState, me: number): ExpertCtx => {
     oppGrids,
     oppEst,
     eOppUse: 0,
+    myEst,
+    myHidden,
+    game,
   };
   if (!finalTurn && total > 0 && oppGrids.length > 0) {
     let e = 0;
@@ -475,21 +525,73 @@ const potential = (grid: Grid, ctx: ExpertCtx): number => {
 };
 
 
+/** Flat stake applied when a closing decision would decide the whole game. */
+const GAME_STAKE = 9;
+
 /**
- * Closing-value adjustment: locking a winning round in is worth a little,
- * closing into the doubling penalty costs roughly our whole (positive) score
- * weighted by how likely we are not to be the strict lowest.
+ * Closing-value adjustment, in three layers:
+ *
+ * 1. Endgame: when this round's projected totals cross the score limit, the
+ *    round score stops mattering — only the final standings do. Closing into
+ *    a lost game gets a heavy malus even if the round itself looks safe
+ *    (being at 95 and closing with +6 loses at 101). Closing into a won game
+ *    gets a heavy bonus even through the doubling penalty (busting a rival
+ *    sitting at 95 wins the game regardless of our doubled round).
+ * 2. Match pressure: near the limit ourselves, the doubling risk is existential
+ *    — widen the safety margin. A rival near the limit makes ending rounds
+ *    quickly valuable — raise the lock-in cap.
+ * 3. The usual round-level trade-off: small lock-in bonus for sealing a lead,
+ *    expected doubling cost otherwise.
  */
-const closeAdjust = (
+/** Would closing at `ourFinal` end the whole game — and in whose favour? */
+export const gameEndingClose = (
   ourFinal: number,
-  oppEst: number,
+  ctx: ExpertCtx
+): "win" | "lose" | null => {
+  const g = ctx.game;
+  const penalized = ourFinal > 0 && ourFinal >= g.oppRoundEst;
+  const myEnd = g.myTotal + (penalized ? 2 * ourFinal : ourFinal);
+  const oppEnd = g.oppTotal + g.oppRoundEst;
+  if (myEnd < g.limit && oppEnd < g.limit) return null;
+  return myEnd < oppEnd ? "win" : "lose";
+};
+
+export const closeAdjust = (
+  ourFinal: number,
+  ctx: ExpertCtx,
   margin: number
 ): number => {
-  const lockBonus = Math.max(0, Math.min(4, (oppEst - ourFinal) * 0.25));
+  const g = ctx.game;
+  const end = gameEndingClose(ourFinal, ctx);
+  if (end !== null) {
+    return end === "win"
+      ? GAME_STAKE
+      : -GAME_STAKE - Math.max(0, ourFinal) * 0.5;
+  }
+
+  const adjMargin = Math.max(0.5, margin + 2 * g.pressureMe - g.pressureOpp);
+  const lockCap = 4 + 3 * g.pressureOpp;
+  const lockBonus = Math.max(0, Math.min(lockCap, (ctx.oppEst - ourFinal) * 0.25));
   if (ourFinal <= 0) return lockBonus; // a non-positive close is never penalized
-  const span = margin + 4;
-  const pLose = Math.max(0, Math.min(1, (ourFinal + margin - oppEst) / span));
+  const span = adjMargin + 4;
+  const pLose = Math.max(0, Math.min(1, (ourFinal + adjMargin - ctx.oppEst) / span));
   return lockBonus - pLose * ourFinal;
+};
+
+/**
+ * Tempo: when our round estimate is clearly better than the opponent's, every
+ * extra turn is a chance for them to catch up — reward actions that reveal a
+ * face-down card (flips, placements onto hidden slots) so the round closes
+ * sooner. Strictly a bonus, never a penalty for revealing, so it can only
+ * accelerate the round's end (a reveal-penalty was tried earlier and produced
+ * never-ending rounds). Applies at 2-3 hidden cards; at 1, `closeAdjust`
+ * already prices the actual closing.
+ */
+export const raceBonus = (ctx: ExpertCtx): number => {
+  if (ctx.finalTurn || ctx.myHidden < 2 || ctx.myHidden > 3) return 0;
+  const edge = ctx.oppEst - ctx.myEst;
+  if (edge < 5) return 0;
+  return Math.min(2.5, 0.15 * edge) * ((4 - ctx.myHidden) / 2);
 };
 
 export interface ExpertPlacement {
@@ -529,7 +631,10 @@ export const scorePlacements = (
         // Placing over our only hidden card reveals the whole grid: we close,
         // and our final score is exactly known.
         const ourFinal = estScore(after, ctx.mu); // all face-up -> exact
-        score += closeAdjust(ourFinal, ctx.oppEst, CLOSE_MARGIN_KNOWN);
+        score += closeAdjust(ourFinal, ctx, CLOSE_MARGIN_KNOWN);
+      } else if (!replaced.faceUp) {
+        // Revealing progress: when we are ahead, hurry the round's end.
+        score += raceBonus(ctx);
       }
     }
     out.push({ index: i, score });
@@ -582,7 +687,10 @@ export const expertFlip = (grid: Grid, ctx: ExpertCtx): ExpertFlip | null => {
     if (closes) {
       // Blind close: our final score is visible + one unknown card.
       const expFinal = visibleScore(grid) + ctx.mu;
-      ev += closeAdjust(expFinal, ctx.oppEst, CLOSE_MARGIN_BLIND);
+      ev += closeAdjust(expFinal, ctx, CLOSE_MARGIN_BLIND);
+    } else {
+      // Revealing progress: when we are ahead, hurry the round's end.
+      ev += raceBonus(ctx);
     }
     // Tie-break: keep columns with several unknowns intact a little longer.
     const tie = hidden.filter((h) => h % COLS === i % COLS).length;
@@ -645,8 +753,17 @@ export const expertDraw = (state: GameState, me: number): ExpertDraw => {
       deckEV += (n / ctx.total) * Math.max(place, toss);
     }
   }
-  // A known-good discard beats an equal gamble on the deck.
-  return { take: takeEval !== null && takeEval.score >= deckEV, takeEval, deckEV };
+  // Risk posture from the whole-game projection: with the better projected
+  // total, protect it with the certain discard; trailing, chase variance
+  // through the deck. Small and bounded — a nudge, not a doctrine.
+  const g = ctx.game;
+  const ahead = g.myTotal + ctx.myEst <= g.oppTotal + g.oppRoundEst;
+  const bias = ahead ? -0.35 : 0.35;
+  return {
+    take: takeEval !== null && takeEval.score >= deckEV + bias,
+    takeEval,
+    deckEV,
+  };
 };
 
 /** Structured outcome of the expert's keep/discard decision. */

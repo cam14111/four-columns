@@ -166,6 +166,63 @@ describe("coach — explanations", () => {
     expect(coachAdvice(withoutShow)?.action).toEqual({ type: "drawFromDeck" });
   });
 
+  it("warns when closing would end the game in a losing position", () => {
+    // Round-safe close (7 vs ~30) that busts our own total past the limit.
+    const oppGrid = gridFrom([3, 2, 4, 1, 5, 5, 5, 5, 0, 1, 2, 0]);
+    for (let i = 4; i < 8; i++) oppGrid[i] = card(5, false);
+    const myGrid = gridFrom([0, 1, 2, 1, 0, -1, 1, 0, 1, 0, 1, 5]);
+    myGrid[11] = card(5, false);
+
+    const s = humanPosition(myGrid, oppGrid, {
+      phase: "replace",
+      held: card(1),
+      heldSource: "deck",
+    });
+    s.players = [
+      { ...s.players[0], totalScore: 95 },
+      { ...s.players[1], totalScore: 50 },
+    ];
+    const advice = coachAdvice(s);
+    expect((advice?.action as { index: number }).index).not.toBe(11);
+    expect(advice?.text).toContain("terminerait la partie");
+  });
+
+  it("celebrates a close that wins the whole game", () => {
+    // The rival sits at 95: ending the round busts them while we stay lower,
+    // even though our round score gets doubled.
+    const oppGrid = gridFrom([1, 0, 2, 1, 0, 0, 1, 0, 0, 0, 0, 0]);
+    oppGrid[11] = card(0, false);
+    const myGrid = gridFrom([2, 1, 3, 1, 0, 2, 1, 0, 1, 0, 0, 6]);
+    myGrid[11] = card(6, false);
+
+    const s = humanPosition(myGrid, oppGrid, {
+      phase: "replace",
+      held: card(1),
+      heldSource: "deck",
+    });
+    s.players = [
+      { ...s.players[0], totalScore: 40 },
+      { ...s.players[1], totalScore: 95 },
+    ];
+    const advice = coachAdvice(s);
+    expect(advice?.action).toEqual({ type: "placeAt", index: 11 });
+    expect(advice?.text).toContain("conclure la partie");
+  });
+
+  it("pushes the pace when far ahead in the round", () => {
+    // Strong board, two hidden cards, opponent all face-down: the flip advice
+    // carries the tempo lesson.
+    const myGrid = gridFrom([4, 3, 2, 1, 0, -1, 1, 2, 5, 5, 0, -1]);
+    myGrid[8] = card(5, false);
+    myGrid[9] = card(5, false);
+    const oppGrid = Array.from({ length: 12 }, () => card(5, false));
+
+    const s = humanPosition(myGrid, oppGrid, { phase: "flip" });
+    const advice = coachAdvice(s);
+    expect(advice?.action.type).toBe("flipAt");
+    expect(advice?.text).toContain("accélérez");
+  });
+
   it("gives the same (expert) advice whatever the difficulty setting", () => {
     const humanGrid = gridFrom([9, 3, 4, 5, 9, 6, 2, 1, 8, 0, 7, 8]);
     humanGrid[8] = card(8, false);

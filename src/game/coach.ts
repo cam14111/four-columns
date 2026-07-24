@@ -1,6 +1,7 @@
 import {
   buildExpertCtx,
   estScore,
+  gameEndingClose,
   expertDecide,
   expertDraw,
   expertFlip,
@@ -9,6 +10,7 @@ import {
   gridAfterPlace,
   hiddenIndices,
   opponentShows,
+  raceBonus,
   scorePlacements,
   type ExpertCtx,
 } from "./ai";
@@ -45,7 +47,13 @@ const round1 = (n: number): number => Math.round(n);
  */
 type PlaceReason =
   | { kind: "clear"; removed: number }
-  | { kind: "close"; ourFinal: number; winning: boolean }
+  | {
+      kind: "close";
+      ourFinal: number;
+      winning: boolean;
+      /** Closing here would decide the whole game (score limit crossed). */
+      gameEnd: "win" | "lose" | null;
+    }
   | { kind: "pair" }
   | { kind: "swap"; replaced: number }
   | { kind: "dig" };
@@ -63,7 +71,12 @@ const placeReason = (
   const replaced = grid[index] as Card;
   if (!replaced.faceUp && hiddenIndices(grid).length === 1) {
     const ourFinal = estScore(after); // fully revealed -> exact
-    return { kind: "close", ourFinal, winning: ourFinal < ctx.oppEst };
+    return {
+      kind: "close",
+      ourFinal,
+      winning: ourFinal < ctx.oppEst,
+      gameEnd: gameEndingClose(ourFinal, ctx),
+    };
   }
   const mates = columnIndices(index % COLS)
     .filter((j) => j !== index)
@@ -84,10 +97,14 @@ const placeTail = (
   switch (reason.kind) {
     case "clear":
       return `il complète vos trois ${value} en ${colName(index)} — la colonne entière part à la défausse (−${reason.removed} pts).`;
-    case "close":
+    case "close": {
+      if (reason.gameEnd === "win") {
+        return `posé sur votre dernière carte cachée, il ferme la manche — et devrait conclure la partie en votre faveur !`;
+      }
       return reason.winning
         ? `posé sur votre dernière carte cachée, il ferme la manche avec ${reason.ourFinal} pt${Math.abs(reason.ourFinal) > 1 ? "s" : ""} : vous êtes devant, verrouillez.`
         : `posez-le sur votre dernière carte cachée pour finir la manche.`;
+    }
     case "pair":
       return `il forme une paire de ${value} en ${colName(index)} — un troisième ${value} viderait la colonne.`;
     case "swap":
@@ -112,6 +129,9 @@ const avoidCloseNote = (
   const hidden = hiddenIndices(grid);
   if (hidden.length !== 1 || chosen === hidden[0]) return "";
   const closingFinal = estScore(gridAfterPlace(grid, value, hidden[0]));
+  if (gameEndingClose(closingFinal, ctx) === "lose") {
+    return " Surtout pas la dernière carte cachée : fermer maintenant terminerait la partie à votre désavantage.";
+  }
   if (closingFinal <= 0 || closingFinal < ctx.oppEst) return "";
   return " Évitez votre dernière carte cachée : fermer maintenant risquerait de doubler votre score.";
 };
@@ -285,6 +305,9 @@ export const coachAdvice = (state: GameState): CoachAdvice | null => {
             : "Il faut retourner votre dernière carte — la manche se termine, croisez les doigts.";
       } else {
         text = `Retournez en ${colName(flip.index)} : révéler tôt aide à planifier, sans changer votre total espéré.`;
+      }
+      if (raceBonus(ctx) > 1 && hidden.length > 1) {
+        text += " Vous êtes largement devant : accélérez la fin de manche.";
       }
       return { action: { type: "flipAt", index: flip.index }, text, index: flip.index };
     }

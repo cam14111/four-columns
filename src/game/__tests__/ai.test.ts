@@ -133,6 +133,103 @@ describe("expert AI — closing judgement", () => {
   });
 });
 
+describe("expert AI — whole-game awareness", () => {
+  // A near-perfect board with one hidden card left (closing = revealing it).
+  const closerGrid = () => {
+    const g = gridFrom([0, 1, 2, 1, 0, -1, 1, 0, 1, 0, 1, 5]);
+    g[11] = card(5, false); // last hidden card
+    return g;
+  };
+  // A modest opponent board: 13 visible, 4 hidden -> round estimate ~32.
+  const oppGrid = () => {
+    const g = gridFrom([3, 2, 4, 1, 5, 5, 5, 5, 0, 1, 2, 0]);
+    for (let i = 4; i < 8; i++) g[i] = card(5, false);
+    return g;
+  };
+
+  const withTotals = (me: number, opp: number): GameState => {
+    const s = aiPosition(oppGrid(), closerGrid(), {
+      phase: "replace",
+      held: card(1),
+      heldSource: "deck",
+    });
+    s.players = [
+      { ...s.players[0], totalScore: opp },
+      { ...s.players[1], totalScore: me },
+    ];
+    return s;
+  };
+
+  it("closes a safe round when the game is not at stake", () => {
+    // Totals far from the limit: closing at ~7 vs ~32 is plainly right.
+    expect(aiChooseAction(withTotals(0, 0))).toEqual({
+      type: "placeAt",
+      index: 11,
+    });
+  });
+
+  it("refuses to end the game in a losing position", () => {
+    // Same board, but we sit at 95/100: closing adds ~7 -> 102, game over,
+    // and the opponent (50 + ~30) finishes below us. Round-safe, game-fatal.
+    const action = aiChooseAction(withTotals(95, 50));
+    expect(action?.type).toBe("placeAt");
+    expect((action as { index: number }).index).not.toBe(11);
+  });
+
+  it("ends the game through the doubling penalty to bust the rival", () => {
+    // We hold 11 visible + one hidden; the rival shows a tiny board but sits
+    // at 95/100. Closing scores us ~12 >= their ~4: doubled to ~24. Still a
+    // win — any round score busts them past the limit while we stay lower.
+    const humanGrid = gridFrom([1, 0, 2, 1, 0, 0, 1, 0, 0, 0, 0, 0]);
+    humanGrid[11] = card(0, false); // one hidden -> their est stays tiny
+    const aiGrid = gridFrom([2, 1, 3, 1, 0, 2, 1, 0, 1, 0, 0, 6]);
+    aiGrid[11] = card(6, false); // our last hidden card
+
+    const base = aiPosition(humanGrid, aiGrid, {
+      phase: "replace",
+      held: card(1),
+      heldSource: "deck",
+    });
+
+    // Neutral totals: closing while not the lowest would just double us.
+    const neutral = { ...base };
+    const a1 = aiChooseAction(neutral);
+    expect((a1 as { index: number }).index).not.toBe(11);
+
+    // Rival at 95: closing ends the game with us far below their total.
+    const endgame = { ...base };
+    endgame.players = [
+      { ...endgame.players[0], totalScore: 95 },
+      { ...endgame.players[1], totalScore: 40 },
+    ];
+    expect(aiChooseAction(endgame)).toEqual({ type: "placeAt", index: 11 });
+  });
+
+  it("races to reveal when clearly ahead in the round", () => {
+    // Two hidden cards left on a strong board, a drawn 5 in hand: covering
+    // the visible 6 gains a point now, covering a hidden slot gains about
+    // nothing — but reveals a card, marching the round toward its end.
+    // Ahead (opponent all face-down, huge estimate), the expert prefers the
+    // hidden slot; with no lead, it just takes the visible point.
+    const mine = () => {
+      const g = gridFrom([6, 3, 2, 1, 0, -1, 1, 2, 5, 5, 0, -1]);
+      g[8] = card(5, false);
+      g[9] = card(5, false);
+      return g;
+    };
+    const held = { phase: "replace" as const, held: card(5), heldSource: "deck" as const };
+
+    const allHidden = Array.from({ length: 12 }, () => card(5, false));
+    const ahead = aiPosition(allHidden, mine(), held);
+    const aheadAction = aiChooseAction(ahead) as { index: number };
+    expect([8, 9]).toContain(aheadAction.index);
+
+    const lowOpp = gridFrom([1, 0, 2, 1, 0, 1, 0, 1, 2, 0, 1, 1]);
+    const noLead = aiPosition(lowOpp, mine(), held);
+    expect(aiChooseAction(noLead)).toEqual({ type: "placeAt", index: 0 });
+  });
+});
+
 describe("expert AI — plays without hidden information", () => {
   it("decisions are unchanged when face-down values are permuted", () => {
     // Same public position, different hidden truth: the policy must not care.
